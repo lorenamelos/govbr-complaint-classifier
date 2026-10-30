@@ -1,12 +1,13 @@
 """FastAPI application entry point.
 
-Only the liveness route exists in this skeleton. The build order in docs/adr (ADR-21) adds
-/v1/classify with the keyword baseline next, then /v1/health, /v1/drift and /v1/model.
+Liveness plus /v1/classify on the keyword baseline. The build order in docs/adr (ADR-21) adds
+/v1/health, /v1/drift and /v1/model next.
 """
 
 from fastapi import FastAPI
 
 from govbr_classifier import __version__
+from govbr_classifier.api.routes import router
 
 app = FastAPI(
     title="gov.br complaint classifier",
@@ -15,6 +16,8 @@ app = FastAPI(
         "Classifies what a gov.br app review complains about, and says when it does not know."
     ),
 )
+
+app.include_router(router)
 
 
 @app.get("/health/live", tags=["health"])
