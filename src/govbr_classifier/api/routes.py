@@ -3,6 +3,12 @@
 Build step 1 (ADR-21): the keyword baseline fills `tema`; `bloqueio`, `tipo` and `acionabilidade`
 are always present in the response and always abstain with `not_implemented`.
 
+Before any of this, a call over the per-IP limit gets 429 from middleware (ADR-18,
+`api/rate_limit.py`), so malformed batches count toward the limit too.
+
+Before any of this, a call over the per-IP limit gets 429 from middleware (ADR-18,
+`api/rate_limit.py`), so malformed batches count toward the limit too.
+
 Two layers of the three in ADR-02 are active here:
 
 - 422 rejects the whole batch. FastAPI raises it from `ClassifyRequest` validation, so the handler

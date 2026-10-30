@@ -7,6 +7,7 @@ Liveness plus /v1/classify on the keyword baseline. The build order in docs/adr 
 from fastapi import FastAPI
 
 from govbr_classifier import __version__
+from govbr_classifier.api.rate_limit import rate_limit_middleware
 from govbr_classifier.api.routes import router
 
 app = FastAPI(
@@ -17,6 +18,7 @@ app = FastAPI(
     ),
 )
 
+app.middleware("http")(rate_limit_middleware)
 app.include_router(router)
 
 
@@ -24,6 +26,6 @@ app.include_router(router)
 def live() -> dict[str, str]:
     """Liveness only: 200 while the process is up.
 
-    The platform polls this, never /v1/health (ADR-14).
+    The platform polls this, never /v1/health (ADR-14), so it is outside the rate limit.
     """
     return {"status": "alive"}

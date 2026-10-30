@@ -34,6 +34,10 @@ it instead of rewriting.
   model was frozen, `N` counts models frozen that month from 1, the description is lowercase kebab-case.
   The first served model is `2026.10.1-tema-keyword-baseline` (was `tema-keyword-baseline-v1`). The
   format is checked at import time (`src/govbr_classifier/models/version.py`).
+- 2026-10-30 (ADR-18): the rate limit is a small middleware over the `limits` library, keyed on the
+  rightmost X-Forwarded-For entry, with one counter per IP for every path under `/v1/`. It runs before
+  body validation, so 422s count. slowapi was dropped: its middleware cannot find route handlers in
+  routers included with FastAPI 0.162 and exempts those requests silently, so nothing was limited.
 
 ## Scope changes
 
