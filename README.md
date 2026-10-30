@@ -9,7 +9,7 @@ says when it does not know.
 
 ## What it classifies
 
-Four attributes, each with a closed label list (`config/taxonomy.yaml`):
+Four attributes, each with a closed label list (`src/govbr_classifier/taxonomy.yaml`):
 
 | Attribute | Question | Cardinality |
 | --- | --- | --- |

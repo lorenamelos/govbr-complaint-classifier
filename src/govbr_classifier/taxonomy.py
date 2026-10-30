@@ -1,4 +1,4 @@
-"""Load and validate the closed label lists in config/taxonomy.yaml.
+"""Load and validate the closed label lists in taxonomy.yaml, shipped inside this package.
 
 The taxonomy is the single source of truth for labels. The API, the LLM labeling prompt and the
 evaluation all read it from here, so a label cannot exist in one place and not in another.
@@ -11,9 +11,9 @@ from typing import Literal
 
 import yaml
 
-from govbr_classifier.settings import PROJECT_ROOT
-
-TAXONOMY_PATH = PROJECT_ROOT / "config" / "taxonomy.yaml"
+# Resolved next to this module, not from the repository root, so an installed (non-editable)
+# package such as the serving container finds it too.
+TAXONOMY_PATH = Path(__file__).resolve().with_name("taxonomy.yaml")
 
 
 @dataclass(frozen=True)

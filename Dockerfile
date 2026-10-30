@@ -12,8 +12,11 @@ WORKDIR /home/app/code
 
 COPY --chown=app pyproject.toml README.md ./
 COPY --chown=app src ./src
-COPY --chown=app config ./config
 RUN pip install .
+
+# The package is installed non-editable, so paths derived from the source tree do not apply here.
+# MODEL_DIR is unused until a trained model is served; it is set now so it never falls back silently.
+ENV MODEL_DIR=/home/app/code/models/current
 
 USER app
 # Spaces routes traffic to port 7860.

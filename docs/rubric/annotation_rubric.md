@@ -1,7 +1,7 @@
 # Annotation rubric
 
 Written before annotation starts (ADR-09). The same rubric is given verbatim to the LLM labeler.
-Label lists live in `config/taxonomy.yaml`; this file says how to decide.
+Label lists live in `src/govbr_classifier/taxonomy.yaml`; this file says how to decide.
 
 ## General
 

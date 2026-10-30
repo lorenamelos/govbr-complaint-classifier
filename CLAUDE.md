@@ -28,7 +28,7 @@ The full rationale lives in `docs/adr/` (21 decisions). This file is the operati
 ## Scope locks (do not cross without asking)
 
 1. **Google Play only.** No App Store, Instagram, TikTok or other sources.
-2. **Four attributes only**: `tema`, `bloqueio`, `tipo`, `acionabilidade` (see `config/taxonomy.yaml`).
+2. **Four attributes only**: `tema`, `bloqueio`, `tipo`, `acionabilidade` (see `src/govbr_classifier/taxonomy.yaml`).
    A new attribute is added only after evaluation supports the existing four.
 3. **No accuracy averaged across attributes.** Every metric is per attribute and per class.
 4. **The LLM never serves predictions.** It labels the training set offline and runs the offline cost
@@ -94,7 +94,6 @@ Endpoints:
 ## Repository map
 
 ```
-config/            taxonomy.yaml (closed label lists), settings in code via pydantic-settings
 data/              never committed; see data/README.md for layout and privacy rules
 docs/adr/          architecture decision records
 docs/rubric/       annotation rubric (written before annotating)
@@ -102,6 +101,8 @@ models/            artifacts; not committed
 notebooks/         exploration only; anything reusable moves to src/
 scripts/           CLI entry points (collect, label, train, benchmark)
 src/govbr_classifier/
+  taxonomy.yaml    closed label lists; ships inside the package so the container can read it
+  settings.py      runtime settings via pydantic-settings, read from the environment
   api/             FastAPI app, schemas, routes
   guards/          contract checks and out-of-distribution detectors
   models/          baseline and trained classifiers behind one interface

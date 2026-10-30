@@ -59,6 +59,10 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The taxonomy travels inside the package so the installed API can read it.
+[tool.setuptools.package-data]
+govbr_classifier = ["taxonomy.yaml"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

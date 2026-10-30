@@ -1,4 +1,4 @@
-.PHONY: help venv install lint format typecheck test test-all api docker-build clean
+.PHONY: help venv install lint format typecheck test test-all smoke-installed api docker-build clean
 
 PYTHON ?= python3.12
 VENV := .venv-govbr-complaint-classifier
@@ -33,6 +33,12 @@ test:  ## Fast suite (no network, no database, no trained model)
 
 test-all:  ## Everything, including integration tests
 	$(BIN)/pytest
+
+smoke-installed:  ## Install non-editable in a throwaway venv and call /v1/classify
+	rm -rf .smoke-venv && $(PYTHON) -m venv .smoke-venv
+	.smoke-venv/bin/pip install -q . httpx
+	cd .smoke-venv && $(CURDIR)/.smoke-venv/bin/python -I $(CURDIR)/scripts/smoke_installed.py
+	rm -rf .smoke-venv
 
 api:  ## Run the API locally with auto-reload
 	$(BIN)/uvicorn govbr_classifier.api.main:app --reload --port 8000

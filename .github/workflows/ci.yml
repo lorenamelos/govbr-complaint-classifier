@@ -24,3 +24,8 @@ jobs:
         run: mypy
       - name: Fast test suite
         run: pytest -m "not integration"
+      - name: Smoke test the non-editable install
+        run: |
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install . httpx
+          cd /tmp && /tmp/smoke-venv/bin/python -I "$GITHUB_WORKSPACE/scripts/smoke_installed.py"

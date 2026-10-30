@@ -131,7 +131,7 @@ _PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
 
 
 def _check_labels_are_in_taxonomy() -> None:
-    """Fail at import time if a keyword label is not in the closed list (config/taxonomy.yaml)."""
+    """Fail at import time if a keyword label is not in the closed list (taxonomy.yaml)."""
     allowed = set(load_taxonomy().attributes["tema"].labels)
     unknown = set(TEMA_KEYWORDS) - allowed
     if unknown:
