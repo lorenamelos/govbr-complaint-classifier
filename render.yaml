@@ -1,0 +1,19 @@
+# Render Blueprint for the public API (ADR-16). Spec: https://render.com/docs/blueprint-spec
+# Environment variables are not set here: the defaults in settings.py apply, so values live in one
+# place. DATABASE_URL and TEXT_HASH_SALT arrive with the prediction log (ADR-17), as secrets set in
+# the dashboard (sync: false), never committed.
+services:
+  - type: web
+    name: govbr-complaint-classifier
+    runtime: docker
+    plan: free
+    # Closest available region to Brazil; the Postgres for the prediction log goes here too.
+    region: virginia
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Render restarts the service when this check fails, so it must be liveness only (ADR-14).
+    # Never /v1/health: a failing canary would become a restart loop that hides the problem.
+    healthCheckPath: /health/live
+    # Deploy only after CI passes, so what goes live is the image the docker job built and called.
+    autoDeployTrigger: checksPass
