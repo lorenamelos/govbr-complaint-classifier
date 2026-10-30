@@ -31,28 +31,34 @@ jobs:
           cd /tmp && /tmp/smoke-venv/bin/python -I "$GITHUB_WORKSPACE/scripts/smoke_installed.py"
 
   docker:
-    # Builds the Space image and calls it. A build that succeeds is not an API that answers.
+    # Builds the serving image and calls it. A build that succeeds is not an API that answers.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build the serving image
         run: docker build -t govbr-classifier:ci .
-      - name: Run it as the Space does
-        run: docker run -d --name api -p 7860:7860 govbr-classifier:ci
-      - name: Wait for liveness
+      - name: Run it as Render does, with PORT set
+        run: docker run -d --name api -e PORT=10000 -p 10000:10000 govbr-classifier:ci
+      - name: Run it without PORT, on the default port
+        run: docker run -d --name api-default -p 7860:7860 govbr-classifier:ci
+      - name: Wait for liveness on both
         run: |
-          for _ in $(seq 1 30); do
-            curl -fsS http://localhost:7860/health/live && exit 0
-            sleep 1
+          for port in 10000 7860; do
+            ok=0
+            for _ in $(seq 1 30); do
+              if curl -fsS "http://localhost:$port/health/live"; then ok=1; break; fi
+              sleep 1
+            done
+            if [ "$ok" -ne 1 ]; then echo "no liveness on port $port"; exit 1; fi
           done
-          docker logs api
-          exit 1
-      - name: Classify one text
+      - name: Classify one text on the PORT container
         run: |
-          curl -fsS -X POST http://localhost:7860/v1/classify \
+          curl -fsS -X POST http://localhost:10000/v1/classify \
             -H "Content-Type: application/json" \
             -d '{"items": [{"text": "o app trava e nao abre"}]}' | tee response.json
           python3 -c "import json; b = json.load(open('response.json')); assert set(b['results'][0]['attributes']) == {'tema', 'bloqueio', 'tipo', 'acionabilidade'}, b"
       - name: Container logs
         if: always()
-        run: docker logs api || true
+        run: |
+          docker logs api || true
+          docker logs api-default || true
