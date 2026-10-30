@@ -1,21 +1,21 @@
 .PHONY: help venv install lint format typecheck test test-all api docker-build clean
 
 PYTHON ?= python3.12
-VENV := .venv
+VENV := .venv-govbr-complaint-classifier
 BIN := $(VENV)/bin
 
 help:  ## List the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
 venv:  ## Create the virtual environment
-	$(PYTHON) -m venv $(VENV)
+	$(PYTHON) -m venv $(VENV) --prompt govbr-complaint-classifier
 	$(BIN)/pip install --upgrade pip
 
 install: venv  ## Install the package with every extra, plus git hooks
 	$(BIN)/pip install -e ".[data,labeling,analysis,dev]"
 	$(BIN)/pre-commit install
 	$(BIN)/nbstripout --install
-	$(BIN)/python -m ipykernel install --user --name govbr-classifier --display-name "govbr-classifier"
+	$(BIN)/python -m ipykernel install --user --name govbr-complaint-classifier --display-name "govbr-complaint-classifier"
 
 lint:  ## Check style and common bugs
 	$(BIN)/ruff check src tests scripts

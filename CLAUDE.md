@@ -115,7 +115,8 @@ tests/             unit tests mirror src/; integration tests are marked
 ## Commands
 
 ```
-make install     # venv + all extras + git hooks + Jupyter kernel
+make install     # creates .venv-govbr-complaint-classifier + all extras + git hooks + Jupyter kernel
+source .venv-govbr-complaint-classifier/bin/activate   # prompt shows (govbr-complaint-classifier)
 make test        # fast suite
 make lint        # ruff
 make typecheck   # mypy

@@ -27,7 +27,7 @@ reports five named levels instead of a single boolean. See [the decision records
 ## Quick start
 
 ```bash
-make install      # creates .venv, installs everything, sets up git hooks
+make install      # creates .venv-govbr-complaint-classifier, installs everything, sets up git hooks
 cp .env.example .env
 make test
 make api          # http://localhost:8000/docs
