@@ -1,0 +1,44 @@
+# Closed label lists for every attribute (ADR-05, ADR-06, ADR-09).
+# Single source of truth: the API schemas, the LLM labeling prompt and the evaluation all read this file.
+# Changing a label here is a model-version change and must be recorded in docs/adr.
+
+version: 1
+
+attributes:
+  tema:
+    cardinality: multi
+    description: What the review is about.
+    exclusive: [outro, nenhum]   # each can only appear alone
+    labels:
+      login_autenticacao: Cannot log in, password, two-factor, account access.
+      verificacao_identidade: Facial recognition, document validation, account level (bronze/silver/gold).
+      travamento: App crashes, closes or freezes.
+      lentidao: App or a screen is slow.
+      servico_nao_carrega: A specific service or page does not load or returns an error.
+      atendimento: Support channels, lack of human help, unanswered requests.
+      outro: A complaint about something not on this list.
+      nenhum: No problem described (for example praise).
+
+  bloqueio:
+    cardinality: single
+    description: Did the person manage to do what they wanted?
+    labels:
+      sim: The person was blocked from completing the task.
+      nao: The person completed the task despite the problem.
+      nao_da_para_saber: The text does not say. A label about the text, not model uncertainty.
+
+  tipo:
+    cardinality: single
+    description: Kind of feedback.
+    labels:
+      bug: Something does not work as expected.
+      pedido_funcionalidade: Asks for something the app does not do.
+      insatisfacao_geral: Dissatisfaction without a specific failure or request.
+      nenhum: No problem described.
+
+  acionabilidade:
+    cardinality: single
+    description: Is there enough information to act? See docs/rubric/annotation_rubric.md.
+    labels:
+      sim: Names at least one of service or feature, failing step, error message, device or OS.
+      nao: None of the above.

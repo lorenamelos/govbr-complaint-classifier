@@ -1,0 +1,35 @@
+# Environment
+.venv/
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data: never committed. Raw reviews carry authorship (see data/README.md).
+data/**
+!data/README.md
+!data/*/
+!data/*/.gitkeep
+
+# Model artifacts: published through releases, not git
+models/**
+!models/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

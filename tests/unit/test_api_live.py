@@ -1,0 +1,11 @@
+"""Liveness must stay trivial: it only proves the process is up (ADR-14)."""
+
+from fastapi.testclient import TestClient
+
+from govbr_classifier.api.main import app
+
+
+def test_live_returns_200() -> None:
+    response = TestClient(app).get("/health/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "alive"}
