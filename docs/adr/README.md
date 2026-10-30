@@ -28,6 +28,13 @@ it instead of rewriting.
 | 20 | Two LLMs from one provider (large and small), with per-class quality next to cost. |
 | 21 | Response schema frozen on day one; unimplemented attributes abstain with `not_implemented`. |
 
+## Dated notes
+
+- 2026-10-30 (ADR-21): `model_version` follows `YYYY.MM.N-description`. `YYYY.MM` is the month the
+  model was frozen, `N` counts models frozen that month from 1, the description is lowercase kebab-case.
+  The first served model is `2026.10.1-tema-keyword-baseline` (was `tema-keyword-baseline-v1`). The
+  format is checked at import time (`src/govbr_classifier/models/version.py`).
+
 ## Scope changes
 
 - 2026-10-29: Google Play is the only data source. App Store, Instagram and TikTok were evaluated and left out.

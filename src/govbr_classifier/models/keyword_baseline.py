@@ -20,9 +20,11 @@ Two rules keep the baseline from inventing confidence:
 import re
 import unicodedata
 
+from govbr_classifier.models.version import check_model_version
 from govbr_classifier.taxonomy import load_taxonomy
 
-MODEL_VERSION = "tema-keyword-baseline-v1"
+# Format YYYY.MM.N-description, checked at import (models/version.py).
+MODEL_VERSION = check_model_version("2026.10.1-tema-keyword-baseline")
 
 # Terms are written without accents: the text is normalized the same way before matching.
 # A term may be a phrase; whitespace inside it matches any run of whitespace in the text.
