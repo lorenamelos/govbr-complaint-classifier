@@ -11,7 +11,7 @@ cannot find one it exempts the request without saying so. Routers included with 
 no handler at that level, so every request went through unlimited. This module keys on the path
 prefix instead, which does not depend on how FastAPI nests routes.
 
-Counters live in process memory. The Space runs one process, so this is one shared counter; it
+Counters live in process memory. The service runs one process, so this is one shared counter; it
 resets on restart, which is acceptable for abuse protection and is not a quota.
 
 The client IP comes from the rightmost X-Forwarded-For entry, the one appended by the proxy in

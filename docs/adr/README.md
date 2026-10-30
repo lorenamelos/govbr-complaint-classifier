@@ -21,7 +21,7 @@ it instead of rewriting.
 | 13 | `/v1/health` reports alive, integrity, canary, freshness and drift, each named. |
 | 14 | Canary checks reproducibility against frozen predictions; `/health/live` is separate and always 200. |
 | 15 | Freshness means delivery: last ingest under 8 days, more than zero new records, a prediction logged for each. |
-| 16 | FastAPI in Docker on Hugging Face Spaces; job on GitHub Actions; latency split by cold and warm, server and client. |
+| 16 | FastAPI in Docker as a Render web service (free plan, virginia); job on GitHub Actions; latency split by cold and warm, server and client. |
 | 17 | Postgres log with salted text hash, scores, latency, cost, model version and source. Raw text is never stored. |
 | 18 | Open API, 30 requests per minute per IP, 50 items per call. |
 | 19 | LLM-in-production scenario measured offline; classifier cost published as CPU seconds at a paid-instance price. |
@@ -38,6 +38,12 @@ it instead of rewriting.
   rightmost X-Forwarded-For entry, with one counter per IP for every path under `/v1/`. It runs before
   body validation, so 422s count. slowapi was dropped: its middleware cannot find route handlers in
   routers included with FastAPI 0.162 and exempts those requests silently, so nothing was limited.
+- 2026-10-30 (ADR-16): the API moves from Hugging Face Spaces to a Docker web service on Render's free
+  plan, region virginia, because Docker Spaces started to be charged. The image is unchanged except
+  that it listens on `$PORT` (default 7860). `render.yaml` reproduces the service. Render polls
+  `/health/live` only, so ADR-14 holds. The free plan stops after 15 minutes idle and takes about a
+  minute to wake, which makes the cold/warm latency split matter more. The prediction-log Postgres
+  (ADR-17) will live in the same region.
 
 ## Scope changes
 

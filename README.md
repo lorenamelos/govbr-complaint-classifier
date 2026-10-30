@@ -1,13 +1,3 @@
----
-# Hugging Face Spaces configuration. GitHub renders this block as a table; the Space reads it.
-title: gov.br complaint classifier
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
-short_description: Classifies gov.br app reviews; says when it does not know
----
-
 # gov.br complaint classifier
 
 A classifier of what gov.br app reviews on Google Play complain about, served behind a public API that
@@ -46,10 +36,11 @@ make api          # http://localhost:8000/docs
 
 ## Public API
 
-Live at `https://<hf-user>-govbr-complaint-classifier.hf.space`. Interactive docs at `/docs`.
+Live at `https://govbr-complaint-classifier.onrender.com`, a Docker web service on Render's free
+plan (`render.yaml`). Interactive docs at `/docs`.
 
 ```bash
-curl -X POST https://<hf-user>-govbr-complaint-classifier.hf.space/v1/classify \
+curl -X POST https://govbr-complaint-classifier.onrender.com/v1/classify \
   -H "Content-Type: application/json" \
   -d '{"items": [
         {"id": "1", "text": "Nao consigo fazer login, o app trava na tela de senha"},
@@ -101,7 +92,7 @@ Response (`request_id` and `latency_ms` vary):
 Liveness, polled by the platform:
 
 ```bash
-curl https://<hf-user>-govbr-complaint-classifier.hf.space/health/live
+curl https://govbr-complaint-classifier.onrender.com/health/live
 # {"status":"alive"}
 ```
 
@@ -121,7 +112,9 @@ curl https://<hf-user>-govbr-complaint-classifier.hf.space/health/live
   `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`.
 - **Contract**: 1 to 50 items per call, Portuguese text of 3 to 2,000 characters. Any contract error
   rejects the whole batch with `422`.
-- The free Space sleeps when idle; the first call after that is a cold start and can take a while.
+- **Cold start**: the free plan stops the service after 15 minutes without traffic. The next call wakes
+  it and can take about a minute; later calls are warm. Latency is reported split by cold and warm
+  (ADR-16), so a slow first call is expected, not a fault.
 
 ## Data and privacy
 
