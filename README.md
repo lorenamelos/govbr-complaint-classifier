@@ -1,11 +1,22 @@
+---
+# Hugging Face Spaces configuration. GitHub renders this block as a table; the Space reads it.
+title: gov.br complaint classifier
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Classifies gov.br app reviews; says when it does not know
+---
+
 # gov.br complaint classifier
 
 A classifier of what gov.br app reviews on Google Play complain about, served behind a public API that
 says when it does not know.
 
-> Status: scaffolding. The API, model and evaluation are built in the order set in
-> [ADR-21](docs/adr/README.md). This README will carry per-class metrics, measured cost and latency, and
-> what the model does not do, as each piece lands.
+> Status: first deployable version. A keyword baseline serves `tema` behind the frozen API contract;
+> the trained model, out-of-distribution detection, prediction log and evaluation are built in the
+> order set in [ADR-21](docs/adr/README.md). This README will carry per-class metrics, measured cost
+> and latency, and what the model does not do, as each piece lands.
 
 ## What it classifies
 
@@ -32,6 +43,85 @@ cp .env.example .env
 make test
 make api          # http://localhost:8000/docs
 ```
+
+## Public API
+
+Live at `https://<hf-user>-govbr-complaint-classifier.hf.space`. Interactive docs at `/docs`.
+
+```bash
+curl -X POST https://<hf-user>-govbr-complaint-classifier.hf.space/v1/classify \
+  -H "Content-Type: application/json" \
+  -d '{"items": [
+        {"id": "1", "text": "Nao consigo fazer login, o app trava na tela de senha"},
+        {"id": "2", "text": "Atualizei e agora tudo certo"}
+      ]}'
+```
+
+Response (`request_id` and `latency_ms` vary):
+
+```json
+{
+  "request_id": "12fadd77-2411-4c97-8ee6-124da855b252",
+  "model_version": "2026.10.1-tema-keyword-baseline",
+  "results": [
+    {
+      "id": "1",
+      "status": "classified",
+      "ood_reason": null,
+      "warnings": [],
+      "attributes": {
+        "tema": {
+          "status": "predicted",
+          "labels": ["login_autenticacao", "travamento"],
+          "scores": {"login_autenticacao": 1.0, "travamento": 1.0},
+          "reason": null
+        },
+        "bloqueio": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"},
+        "tipo": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"},
+        "acionabilidade": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"}
+      }
+    },
+    {
+      "id": "2",
+      "status": "classified",
+      "ood_reason": null,
+      "warnings": [],
+      "attributes": {
+        "tema": {"status": "abstained", "labels": [], "scores": {}, "reason": "below_threshold"},
+        "bloqueio": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"},
+        "tipo": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"},
+        "acionabilidade": {"status": "abstained", "label": null, "score": null, "top_candidate": null, "threshold": null, "reason": "not_implemented"}
+      }
+    }
+  ],
+  "latency_ms": {"server": 0.081}
+}
+```
+
+Liveness, polled by the platform:
+
+```bash
+curl https://<hf-user>-govbr-complaint-classifier.hf.space/health/live
+# {"status":"alive"}
+```
+
+### What is served today, and what is not
+
+- **Model**: `2026.10.1-tema-keyword-baseline`, a keyword list written before any data was collected.
+  It has **no measured metrics**. It fills `tema` only; the other three attributes always abstain with
+  `not_implemented`. For `tema`, `below_threshold` here means no keyword matched: the attribute abstains
+  instead of guessing `outro`.
+- **Out of distribution**: not detected yet. Every valid item comes back `classified`, including text
+  that is not a gov.br review.
+- **Prediction log: not active yet.** Requests are not recorded anywhere (ADR-17 is the next build
+  step), so there is no drift, canary or freshness reporting, and `/v1/health`, `/v1/drift` and
+  `/v1/model` do not exist yet.
+- **Rate limit: active.** 30 requests per minute per IP across `/v1/`, including requests rejected
+  with 422. Over the limit you get `429` with `Retry-After`; every `/v1/` response carries
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`.
+- **Contract**: 1 to 50 items per call, Portuguese text of 3 to 2,000 characters. Any contract error
+  rejects the whole batch with `422`.
+- The free Space sleeps when idle; the first call after that is a cold start and can take a while.
 
 ## Data and privacy
 
