@@ -87,6 +87,14 @@ Endpoints:
 - `/v1/health` returns 200 with `status` in the body. Never 503 on canary failure: it would trigger a
   restart loop that hides the problem.
 
+**Personal data in review text (scope lock 5)**
+- Review text itself can carry personal data: 0.56% of collected reviews contain a CPF or CPF-like
+  number, a phone number, an e-mail or a self-introduction with a name. Dropping the author columns
+  does not remove it.
+- **Mask CPF, phone, e-mail and names in the text before sending anything to an LLM** (training-set
+  labeling and the cost benchmark, step 4). No unmasked text leaves the machine, in any batch, ever.
+- Notebooks may count these patterns but never print texts that match them.
+
 **Day one (ADR-21)**
 - The response schema in `src/govbr_classifier/api/schemas.py` is frozen. Attributes not yet implemented
   abstain with `reason: not_implemented`. Improving the model changes only `model_version`.
