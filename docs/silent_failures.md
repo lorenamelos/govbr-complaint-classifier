@@ -103,3 +103,25 @@ not an open-ended multiple, so this is accepted rather than fixed.
 - `scripts/check_single_counter.py` is the external check to repeat after any change to the
   platform or the proxy chain.
 - Pending (ADR-13): the `unresolved` count enters the alarm level of `/v1/health` when it is built.
+
+## 4. The scraper reports a failure as the end of the history (2026-10-31)
+
+**What failed.** Nothing yet: it was caught before the first full collection. In
+google-play-scraper 1.2.7, `reviews()` wraps each request in `except Exception: token = None`, and
+an empty token is also how it says there are no more pages. `reviews_all()` stops on that token.
+A rate limit, a network error or an unexpected page an hour into a collection would end it early,
+and the result would be indistinguishable from the complete history.
+
+**Why nothing would have said so.** The call returns normally, with fewer reviews than exist. The
+oldest review date would simply be later than the truth, and every analysis built on it, from
+monthly volume to the drift reference, would inherit the gap.
+
+**How it was caught.** Reading the library before relying on it, to decide how to resume a long
+collection.
+
+**What prevents it now.** `data/collect.py` calls the one-request function directly, so errors
+reach a retry loop with backoff, and every run records why it stopped: `end_of_history`,
+`max_pages`, `error_after_retries` or `empty_page_with_token`. Only the first marks the run
+`complete`, and `scripts/build_interim.py` refuses an incomplete run unless told the history is
+partial, which is then written in the interim metadata. The library is pinned to `==1.2.7`
+because the function is private. Tests pin each stop reason.

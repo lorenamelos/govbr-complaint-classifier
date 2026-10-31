@@ -122,9 +122,9 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
 
 When a check passes while the system is not doing what it claims, that failure is recorded in
 [docs/silent_failures.md](docs/silent_failures.md): what failed, why nothing said so, how it was
-caught and what stops it from coming back. Three so far: the taxonomy missing from the installed
-package, a rate limiter that exempted every route, and several rate-limit counters for one client
-in production.
+caught and what stops it from coming back. Four so far: the taxonomy missing from the installed
+package, a rate limiter that exempted every route, several rate-limit counters for one client in
+production, and a scraper that reports a failure as the end of the history.
 
 ## Data and privacy
 
