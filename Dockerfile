@@ -21,5 +21,8 @@ ENV MODEL_DIR=/home/app/code/models/current
 USER app
 # The platform sets PORT (Render uses 10000); 7860 is the default for a plain `docker run`.
 # Shell form so ${PORT} expands; exec so uvicorn is PID 1 and gets SIGTERM on redeploy.
+# --workers 1 is required, not tuning: the rate-limit counter lives in process memory, so N workers
+# would mean N counters. Without the flag uvicorn reads $WEB_CONCURRENCY, which Render sets at
+# runtime for services created after 2025-12-08.
 EXPOSE 7860
-CMD ["sh", "-c", "exec uvicorn govbr_classifier.api.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+CMD ["sh", "-c", "exec uvicorn govbr_classifier.api.main:app --host 0.0.0.0 --port ${PORT:-7860} --workers 1"]

@@ -57,8 +57,24 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"items": [{"text": "o app trava e nao abre"}]}' | tee response.json
           python3 -c "import json; b = json.load(open('response.json')); assert set(b['results'][0]['attributes']) == {'tema', 'bloqueio', 'tipo', 'acionabilidade'}, b"
+      - name: One process even when the platform asks for more
+        # Render sets WEB_CONCURRENCY at runtime; uvicorn would start that many workers, each with its
+        # own rate-limit counter. Counting server processes is deterministic; which worker takes a
+        # connection is not, so the counter check below cannot catch this on its own.
+        run: |
+          docker run -d --name api-workers -e WEB_CONCURRENCY=3 -p 10001:7860 govbr-classifier:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:10001/health/live >/dev/null 2>&1 && break
+            sleep 1
+          done
+          servers=$(docker logs api-workers 2>&1 | grep -c "Started server process")
+          echo "server processes: $servers"
+          test "$servers" -eq 1
+      - name: One rate-limit counter per client
+        run: python3 scripts/check_single_counter.py http://localhost:10001
       - name: Container logs
         if: always()
         run: |
           docker logs api || true
           docker logs api-default || true
+          docker logs api-workers || true

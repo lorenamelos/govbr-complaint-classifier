@@ -12,8 +12,9 @@ no handler at that level, so every request went through unlimited. This module k
 prefix instead, which does not depend on how FastAPI nests routes.
 
 Counters live in process memory, so the limit is correct only while exactly one process serves the
-API: with N processes, each keeps its own counter and a client gets up to N times the limit. They
-reset on restart, which is acceptable for abuse protection and is not a quota.
+API: with N processes, each keeps its own counter and a client gets up to N times the limit. The
+Dockerfile pins `--workers 1` for this reason; CI checks it. Counters reset on restart, which is
+acceptable for abuse protection and is not a quota.
 
 The client IP comes from the rightmost X-Forwarded-For entry. The leftmost entries are written by
 the client and can be forged, so keying on them would let anyone escape the limit by sending a
