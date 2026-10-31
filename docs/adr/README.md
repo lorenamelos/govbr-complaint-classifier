@@ -44,6 +44,12 @@ it instead of rewriting.
   `/health/live` only, so ADR-14 holds. The free plan stops after 15 minutes idle and takes about a
   minute to wake, which makes the cold/warm latency split matter more. The prediction-log Postgres
   (ADR-17) will live in the same region.
+- 2026-10-31 (ADR-13, pending): when `/v1/health` is built, the count of rate-limit requests that
+  could not be tied to a client (`unresolved`, per reason: `sources_disagree`, `no_client_entry`,
+  `invalid_entry`, `no_address`) enters its alarm level. Today it exists only as a warning in the
+  platform logs and as `client_ip.unresolved_totals()`. A rising count means the proxy chain in front
+  of the app changed or the copied Cloudflare ranges are stale, and every such request shares one
+  counter: it must be visible in the health report, not only in logs.
 
 ## Scope changes
 
