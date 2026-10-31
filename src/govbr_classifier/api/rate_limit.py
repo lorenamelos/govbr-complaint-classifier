@@ -11,14 +11,21 @@ cannot find one it exempts the request without saying so. Routers included with 
 no handler at that level, so every request went through unlimited. This module keys on the path
 prefix instead, which does not depend on how FastAPI nests routes.
 
-Counters live in process memory. The service runs one process, so this is one shared counter; it
-resets on restart, which is acceptable for abuse protection and is not a quota.
+Counters live in process memory, so the limit is correct only while exactly one process serves the
+API: with N processes, each keeps its own counter and a client gets up to N times the limit. They
+reset on restart, which is acceptable for abuse protection and is not a quota.
 
-The client IP comes from the rightmost X-Forwarded-For entry, the one appended by the proxy in
-front of the app. The leftmost entries are written by the client and can be forged, so keying on
-them would let anyone escape the limit by sending a different header on each call. If the platform
-chains more proxies than expected, the rightmost entry is a proxy address and every client shares
-one bucket: the limit then fails toward more 429s, which are visible, never toward no limit.
+The client IP comes from the rightmost X-Forwarded-For entry. The leftmost entries are written by
+the client and can be forged, so keying on them would let anyone escape the limit by sending a
+different header on each call. Keying on the rightmost entry is correct only if the proxy that
+appends it sits directly in front of the app and writes the client's address. When another proxy
+layer sits in between, the rightmost entry is that layer's address. If the layer is one fixed
+address, every client shares one counter (more 429s). If it is a pool, each proxy in the pool gets
+its own counter and the effective limit multiplies, with nothing failing visibly. The second case
+is the dangerous one.
+
+Measured on 2026-10-30, Cloudflare in front of Render: one client, one process, three interleaved
+counters. The rightmost entry is not a stable client key there; the fix is pending diagnosis.
 """
 
 import math
