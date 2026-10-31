@@ -8,6 +8,12 @@ Google Play reviews of the gov.br app, package `br.gov.meugovbr` (verified 2026-
 "gov.br", developer "Serviços e Informações do Brasil", listed on Google Play on 2020-04-27), with
 `lang=pt` and `country=br`. Collected with google-play-scraper 1.2.7, newest first.
 
+First full collection (run `20261031T144059Z`, 2026-10-31): stopped at `end_of_history` after 801
+pages of 1,000 with no retries, in 57 minutes. **800,069 reviews**, against 803,198 written reviews
+shown on the store page at the same time (99.6%; the store count covers every language). The oldest
+review reached is dated **2020-05-01**, four days after the listing; the newest 2026-10-30. No
+duplicate review IDs across the run.
+
 ## Layout
 
 | Folder | Contents | Written by |
@@ -55,6 +61,10 @@ review date window.
   later is dropped until someone decides otherwise.
 - The reply text stays in raw for a possible future anonymized use; it is never published with
   authorship.
+- **The text itself can carry personal data.** In the first full collection, 4,415 reviews
+  (0.55%) mention a CPF or contain a CPF-like number, and 94 introduce the author by name. Dropping
+  columns does not remove them: any published sample must scrub the text, not only the columns.
+  Notebooks count these patterns and skip them when printing examples.
 - Never publish raw text with authorship. Publish only aggregates, an anonymized sample, and the
   collection code. Notebooks read `interim/`, never `raw/`.
 - The API never stores input text, only a salted hash (ADR-17).
@@ -72,7 +82,10 @@ review date window.
   UTC and keeps the raw epoch seconds; `interim` dates are built from the epochs.
 - **Language filter.** `lang=pt` returns reviews Google classifies as Portuguese; the store's total
   review count covers every language, so the collected total is expected to be lower.
-- **Text length is capped by Google Play** at 500 characters (maximum observed in the pilot: 500).
+- **Text length is capped at 500 characters for recent reviews only.** 132 reviews are longer,
+  up to 2,006 characters; 128 of them are from 2020 to 2022. The p99 over the whole history is 384
+  characters. A model trained on this data has seen very few texts above 500 characters, and none
+  above 2,006, even though the API contract accepts up to 2,000.
 
 ## Reproducibility
 
