@@ -20,6 +20,7 @@ duplicate review IDs across the run.
 | --- | --- | --- |
 | `raw/<run_id>/` | One collection run: `part-*.parquet` exactly as collected (author fields included), `state.json` to resume, `metadata.json` | `scripts/collect_reviews.py` |
 | `interim/` | `reviews.parquet`, one row per review ID, no authorship, plus `reviews.metadata.json` | `scripts/build_interim.py` |
+| `review/` | Hand review of heuristic flags: `other_language.csv` holds a proposed label per flagged review and an `owner_label` column for the owner's correction | notebook 01, by hand |
 | `labeled/llm/` | Training set labeled by the LLM, with prompt version and model id | `scripts/label_with_llm.py` |
 | `labeled/human/` | Hand annotations: `calibration` (40%) and `test` (60%) splits | manual annotation |
 | `reference/` | Frozen drift reference snapshot, with collection window and app version | dataset building |
@@ -61,10 +62,14 @@ review date window.
   later is dropped until someone decides otherwise.
 - The reply text stays in raw for a possible future anonymized use; it is never published with
   authorship.
-- **The text itself can carry personal data.** In the first full collection, 4,415 reviews
-  (0.55%) mention a CPF or contain a CPF-like number, and 94 introduce the author by name. Dropping
-  columns does not remove them: any published sample must scrub the text, not only the columns.
-  Notebooks count these patterns and skip them when printing examples.
+- **The text itself can carry personal data.** In the first full collection, 103 reviews
+  (0.013%) contain a CPF-shaped number (6), a phone number (4), an e-mail (0) or a
+  self-introduction with a name (94). Dropping columns does not remove them: any published sample
+  must scrub the text, not only the columns. Notebooks count these patterns and skip them when
+  printing examples.
+- The word "cpf" alone (4,410 reviews, 0.55%) is the subject of a complaint, not personal data, and
+  is never masked. Corrected on 2026-10-31: an earlier count merged the word with the number and
+  reported 4,415 reviews with personal data.
 - Never publish raw text with authorship. Publish only aggregates, an anonymized sample, and the
   collection code. Notebooks read `interim/`, never `raw/`.
 - The API never stores input text, only a salted hash (ADR-17).

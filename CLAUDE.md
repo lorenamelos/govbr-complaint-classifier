@@ -95,12 +95,17 @@ Endpoints:
   the same quarter (26 of 27) and the same length band. Dropping them makes the app look better.
 
 **Personal data in review text (scope lock 5)**
-- Review text itself can carry personal data: 0.56% of collected reviews contain a CPF or CPF-like
+- Review text itself can carry personal data: 103 collected reviews (0.013%) contain a CPF-shaped
   number, a phone number, an e-mail or a self-introduction with a name. Dropping the author columns
   does not remove it.
-- **Mask CPF, phone, e-mail and names in the text before sending anything to an LLM** (training-set
-  labeling and the cost benchmark, step 4). No unmasked text leaves the machine, in any batch, ever.
-- Notebooks may count these patterns but never print texts that match them.
+- **Mask CPF numbers, phone numbers, e-mails and names in the text before sending anything to an
+  LLM** (training-set labeling and the cost benchmark, step 4). No unmasked text leaves the machine,
+  in any batch, ever.
+- **Mask the number, never the word "cpf".** The word appears in 4,410 reviews (0.55%) as the
+  subject of the complaint and identifies nobody; masking it would erase the topic the classifier
+  must read. Match CPF numbers with any separators (dots, dashes, spaces) or none.
+- Notebooks may count these patterns but never print texts that match them. Printed examples also
+  skip texts with the word "cpf", as a margin for numbers written in forms the pattern misses.
 
 **Day one (ADR-21)**
 - The response schema in `src/govbr_classifier/api/schemas.py` is frozen. Attributes not yet implemented
