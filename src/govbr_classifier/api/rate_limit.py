@@ -31,7 +31,6 @@ from limits import RateLimitItem, parse
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 
-from govbr_classifier.api import ip_diagnostics
 from govbr_classifier.api.client_ip import client_key
 from govbr_classifier.settings import get_settings
 
@@ -64,8 +63,6 @@ async def rate_limit_middleware(
         return await call_next(request)
 
     key = client_key(request)
-    if get_settings().rate_limit_diagnostics:
-        ip_diagnostics.log_request_shape(request, key)
     if not _window.hit(_limit, key):
         headers = _headers(key)
         retry_after = max(1, math.ceil(float(headers["X-RateLimit-Reset"]) - time.time()))

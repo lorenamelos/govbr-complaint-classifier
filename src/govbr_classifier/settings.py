@@ -24,8 +24,6 @@ class Settings(BaseSettings):
     model_sha256: str = ""
 
     rate_limit: str = "30/minute"
-    # TEMPORARY: log the shape of IP headers, never their values (api/ip_diagnostics.py).
-    rate_limit_diagnostics: bool = False
     max_batch_size: int = 50
 
     # Contract limits (ADR-03)
