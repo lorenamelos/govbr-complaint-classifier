@@ -1,0 +1,22 @@
+name: cloudflare-ranges
+
+# The rate limit trusts Cloudflare's published IP ranges (src/govbr_classifier/api/client_ip.py).
+# When Cloudflare changes them, this goes red before production turns it into 429s for everyone.
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Mondays 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Compare the copied ranges with the published ones
+        run: pytest -m integration tests/integration/test_cloudflare_ranges.py
