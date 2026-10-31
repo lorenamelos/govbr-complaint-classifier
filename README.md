@@ -101,7 +101,12 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
 - **Model**: `2026.10.1-tema-keyword-baseline`, a keyword list written before any data was collected.
   It has **no measured metrics**. It fills `tema` only; the other three attributes always abstain with
   `not_implemented`. For `tema`, `below_threshold` here means no keyword matched: the attribute abstains
-  instead of guessing `outro`.
+  instead of guessing `outro`. On the 800,069 collected reviews it abstains on 52.6%.
+  **Known problem:** praise of the support channel is classified as a complaint. In "atendimento
+  ótimo", "atendimento" matches the `atendimento` theme and "ótimo" matches `nenhum`; since a
+  problem label always wins over `nenhum` (ADR-05), the review comes back as a complaint about
+  support. Topic words such as "atendimento", "suporte" and "chat" name a subject, not a problem.
+  Left as is until the keyword lists are re-derived from labeled data.
 - **Out of distribution**: not detected yet. Every valid item comes back `classified`, including text
   that is not a gov.br review.
 - **Prediction log: not active yet.** Requests are not recorded anywhere (ADR-17 is the next build

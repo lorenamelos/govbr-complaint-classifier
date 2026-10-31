@@ -8,6 +8,10 @@ expectation, not from measured reviews, and they are expected to change once rea
 is available. Treat every term here as provisional and re-derive the lists from the labeled set
 before reporting any metric.
 
+Known problem, measured in notebook 01 and left as is until then: some terms name a subject, not a
+problem. "atendimento ótimo" matches `atendimento` and `nenhum`, the problem-wins rule drops
+`nenhum`, and praise of the support channel comes back as a complaint about it.
+
 Two rules keep the baseline from inventing confidence:
 
 - Matching is by whole word (regex word boundaries), never by substring, so "chato" does not match
