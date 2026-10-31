@@ -32,7 +32,8 @@ dependencies = [
 [project.optional-dependencies]
 # Collecting Google Play reviews (offline and in the weekly job).
 data = [
-    "google-play-scraper>=1.2.7",
+    # Pinned exactly: data/collect.py calls a private function of this version.
+    "google-play-scraper==1.2.7",
     "pyarrow>=16.0",
 ]
 # LLM labeling of the training set and the offline cost benchmark (ADR-19, ADR-20).
