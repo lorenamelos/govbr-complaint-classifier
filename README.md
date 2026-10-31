@@ -107,12 +107,11 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
 - **Prediction log: not active yet.** Requests are not recorded anywhere (ADR-17 is the next build
   step), so there is no drift, canary or freshness reporting, and `/v1/health`, `/v1/drift` and
   `/v1/model` do not exist yet.
-- **Rate limit: active, but not yet per client in production.** The target is 30 requests per minute
-  per IP across `/v1/`, including requests rejected with 422. Over the limit you get `429` with
-  `Retry-After`; every `/v1/` response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
-  `X-RateLimit-Reset`. Behind Cloudflare and Render, one client is currently counted in more than
-  one place, so the effective limit is higher than 30. Under diagnosis: see
-  [silent failure 3](docs/silent_failures.md).
+- **Rate limit: active.** 30 requests per minute per client across `/v1/`, including requests
+  rejected with 422. A client is its IPv4 address or its IPv6 /64. Over the limit you get `429`
+  with `Retry-After`; every `/v1/` response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`
+  and `X-RateLimit-Reset`. Known limitation: a client that uses both IPv4 and IPv6 is counted
+  twice, so it can get up to 60. See [silent failure 3](docs/silent_failures.md).
 - **Contract**: 1 to 50 items per call, Portuguese text of 3 to 2,000 characters. Any contract error
   rejects the whole batch with `422`.
 - **Cold start**: the free plan stops the service after 15 minutes without traffic. The next call wakes
@@ -125,7 +124,7 @@ When a check passes while the system is not doing what it claims, that failure i
 [docs/silent_failures.md](docs/silent_failures.md): what failed, why nothing said so, how it was
 caught and what stops it from coming back. Three so far: the taxonomy missing from the installed
 package, a rate limiter that exempted every route, and several rate-limit counters for one client
-in production (open).
+in production.
 
 ## Data and privacy
 

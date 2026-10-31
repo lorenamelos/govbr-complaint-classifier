@@ -42,7 +42,7 @@ library that keys on the path prefix `/v1/`, which does not depend on how FastAP
 Tests pin: the call over the limit gets 429, 422s count toward the limit, forged left entries of
 X-Forwarded-For do not escape it, and liveness is never limited. See the dated note under ADR-18.
 
-## 3. Several rate-limit counters for one client in production (2026-10-30, open)
+## 3. Several rate-limit counters for one client in production (2026-10-30, closed 2026-10-31)
 
 **What failed.** In production, 40 calls from one notebook within one minute showed three
 interleaved `X-RateLimit-Remaining` countdowns (29 appeared three times), and 200s came after 429s.
@@ -65,11 +65,41 @@ counters either way.
   discarded for production:** the Render logs show one `Started server process [1]` per instance,
   and the measurement ran on a single instance with a single process. `--workers 1` is now pinned
   anyway, and CI checks it, because the in-memory counter requires it.
-- *The rate-limit key rotates between proxies.* The key is the rightmost X-Forwarded-For entry.
-  With Cloudflare in front of Render, that entry may be a proxy address that varies per request,
-  so each proxy gets its own counter. **Under diagnosis** with `RATE_LIMIT_DIAGNOSTICS=1`, which
-  logs the shape of the IP headers and never an address (`api/ip_diagnostics.py`).
+- *The rate-limit key rotates between proxies.* **Confirmed.** A temporary diagnostic (removed
+  after the fix) logged the shape of the IP headers on each call, never an address: counts,
+  header names, positions, and the class of each entry. On every call, from the left,
+  X-Forwarded-For was `<client>, <Cloudflare edge>, <Render internal proxy>`; the key was the
+  rightmost entry, a private address that took three distinct values in one process. That is the
+  three counters. `CF-Connecting-IP` and `True-Client-IP` both matched the entry at -3. A forged
+  X-Forwarded-For entry landed on the left and the client stayed at -3. A forged
+  `CF-Connecting-IP` never reached the app: Cloudflare answered 403.
 
-**What prevents it now.** Pending the diagnosis. Already in place: `--workers 1` with a CI check,
-and `scripts/check_single_counter.py`, which fails on a repeated `remaining` value or a 200 after
-a 429 and is the check to repeat against production after the fix.
+**Fix.** `api/client_ip.py` takes the key from two sources and requires them to agree: a walk of
+X-Forwarded-For from the right that skips internal networks and Cloudflare's published ranges,
+and `CF-Connecting-IP`. Disagreement, an invalid entry or a chain of proxies only goes to one
+shared `unresolved` counter, with a warning that carries no address. IPv6 is counted per /64.
+
+**Verified in production (2026-10-31).** Two runs of `scripts/check_single_counter.py` against the
+service: one countdown from 29 to 0, then only 429s, `OK: one counter` both times. No
+`rate_limit_unresolved` line in the Render logs for the hour after the fix.
+
+**Known limitation, not fixed.** A client that reaches the service over both IPv4 and IPv6 is two
+keys, an IPv4 address and an IPv6 /64, so it can get up to twice the limit. Seen in the
+verification: after the notebook was limited, a phone on the same Wi-Fi still got a 200. The
+network has IPv6 (`curl -6` to `/health/live` returned 200), so the likely explanation is the
+notebook leaving over IPv4 and the phone over IPv6; this was not confirmed per request. The two
+address families cannot be tied to one client from the headers, and the cap is a factor of two,
+not an open-ended multiple, so this is accepted rather than fixed.
+
+**What prevents it now.**
+
+- `tests/unit/test_client_ip.py` reproduces the production header shape with the Render proxy
+  rotating; it failed with a 200 on call 31 before the fix. Other tests pin that forged entries do
+  not escape, that the entry point does not matter, that two clients behind the same proxies are
+  counted apart, and that a stale Cloudflare list or a forged `CF-Connecting-IP` goes to
+  `unresolved` with a warning that holds no address.
+- A weekly workflow (`.github/workflows/cloudflare-ranges.yml`) fails when the copied Cloudflare
+  ranges differ from the published ones, before a stale list turns into 429s in production.
+- `scripts/check_single_counter.py` is the external check to repeat after any change to the
+  platform or the proxy chain.
+- Pending (ADR-13): the `unresolved` count enters the alarm level of `/v1/health` when it is built.

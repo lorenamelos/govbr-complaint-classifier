@@ -50,6 +50,13 @@ it instead of rewriting.
   platform logs and as `client_ip.unresolved_totals()`. A rising count means the proxy chain in front
   of the app changed or the copied Cloudflare ranges are stale, and every such request shares one
   counter: it must be visible in the health report, not only in logs.
+- 2026-10-31 (ADR-18): the rate-limit key is no longer the rightmost X-Forwarded-For entry. Behind
+  Cloudflare and Render that entry is a Render internal proxy that rotates, so one client got one
+  counter per proxy (silent failure 3). The key now comes from `api/client_ip.py`: a right-to-left
+  walk of X-Forwarded-For that skips internal networks and Cloudflare's published ranges,
+  cross-checked with `CF-Connecting-IP`; disagreement goes to a shared `unresolved` counter with a
+  warning. IPv6 is counted per /64. Known limitation: a client on both IPv4 and IPv6 is two keys,
+  at most twice the limit. Verified in production on 2026-10-31.
 
 ## Scope changes
 
