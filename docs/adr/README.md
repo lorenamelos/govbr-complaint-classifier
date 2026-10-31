@@ -57,6 +57,22 @@ it instead of rewriting.
   cross-checked with `CF-Connecting-IP`; disagreement goes to a shared `unresolved` counter with a
   warning. IPv6 is counted per /64. Known limitation: a client on both IPv4 and IPv6 is two keys,
   at most twice the limit. Verified in production on 2026-10-31.
+- 2026-10-31 (ADR-03): the long-text warning threshold is the p99 length of the training set,
+  computed when that set exists; it is not fixed by hand. Current estimates from notebook 01: 384
+  characters counting every review, 484 counting each distinct text once, so the value depends on
+  whether training is deduplicated. The 2,000-character contract maximum stays.
+- 2026-10-31 (ADR-07): splits are by group, never by row. A group is every review whose normalized
+  text (case, accents, punctuation and spacing ignored) is identical, and all copies go to the same
+  side. The most recent months are held out for test, so the model is always evaluated on text
+  newer than what it learned from. Why: in a random 80/20 split, 61.4% of test reviews have an
+  identical normalized twin in train (5.2% among texts of 5+ words), and near-duplicates add more.
+- 2026-10-31 (ADR-07): annotation samples unique normalized texts, stratified by rating and length
+  to favor complaints, and records each item's selection probability. Calibration and test metrics
+  are computed per unique text and weighted by frequency (inverse selection probability times the
+  number of reviews sharing the text), so thresholds are tuned for the traffic the API serves.
+  Why: deduplicating moves 1-2 star reviews from 31.5% of reviews to 61.2% of unique texts, and
+  precision depends on prevalence; an unweighted precision of 0.80 on the sample would not hold in
+  production.
 
 ## Scope changes
 
