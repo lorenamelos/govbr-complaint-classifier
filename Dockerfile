@@ -24,5 +24,7 @@ USER app
 # --workers 1 is required, not tuning: the rate-limit counter lives in process memory, so N workers
 # would mean N counters. Without the flag uvicorn reads $WEB_CONCURRENCY, which Render sets at
 # runtime for services created after 2025-12-08.
+# --no-access-log: uvicorn's access log writes the connecting IP on every line. Status and latency
+# belong in the prediction log (ADR-17), which stores no address.
 EXPOSE 7860
-CMD ["sh", "-c", "exec uvicorn govbr_classifier.api.main:app --host 0.0.0.0 --port ${PORT:-7860} --workers 1"]
+CMD ["sh", "-c", "exec uvicorn govbr_classifier.api.main:app --host 0.0.0.0 --port ${PORT:-7860} --workers 1 --no-access-log"]

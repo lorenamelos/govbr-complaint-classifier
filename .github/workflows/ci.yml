@@ -72,6 +72,13 @@ jobs:
           test "$servers" -eq 1
       - name: One rate-limit counter per client
         run: python3 scripts/check_single_counter.py http://localhost:10001
+      - name: No request lines in the container log
+        # The access log writes the connecting IP on every request; it must stay off.
+        run: |
+          if docker logs api 2>&1 | grep -q '"POST /v1/classify'; then
+            echo "access log is on: request lines with client addresses reached the log"
+            exit 1
+          fi
       - name: Container logs
         if: always()
         run: |
