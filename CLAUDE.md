@@ -87,6 +87,13 @@ Endpoints:
 - `/v1/health` returns 200 with `status` in the body. Never 503 on canary failure: it would trigger a
   restart loop that hides the problem.
 
+**Reviews without app version**
+- Never filter out or drop reviews whose `app_version` is empty. "Without version" is a category of
+  its own in any analysis or monitoring by version (drift per version, per-version splits, charts).
+- Why: it is not missing at random. In notebook 01 (section 4b), 7.4% of reviews have no version,
+  and they are a more dissatisfied group: 50.6% have 1 star against 25.7%, and the gap holds within
+  the same quarter (26 of 27) and the same length band. Dropping them makes the app look better.
+
 **Personal data in review text (scope lock 5)**
 - Review text itself can carry personal data: 0.56% of collected reviews contain a CPF or CPF-like
   number, a phone number, an e-mail or a self-introduction with a name. Dropping the author columns
