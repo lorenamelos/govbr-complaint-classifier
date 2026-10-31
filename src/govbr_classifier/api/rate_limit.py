@@ -16,17 +16,9 @@ API: with N processes, each keeps its own counter and a client gets up to N time
 Dockerfile pins `--workers 1` for this reason; CI checks it. Counters reset on restart, which is
 acceptable for abuse protection and is not a quota.
 
-The client IP comes from the rightmost X-Forwarded-For entry. The leftmost entries are written by
-the client and can be forged, so keying on them would let anyone escape the limit by sending a
-different header on each call. Keying on the rightmost entry is correct only if the proxy that
-appends it sits directly in front of the app and writes the client's address. When another proxy
-layer sits in between, the rightmost entry is that layer's address. If the layer is one fixed
-address, every client shares one counter (more 429s). If it is a pool, each proxy in the pool gets
-its own counter and the effective limit multiplies, with nothing failing visibly. The second case
-is the dangerous one.
-
-Measured on 2026-10-30, Cloudflare in front of Render: one client, one process, three interleaved
-counters. The rightmost entry is not a stable client key there; the fix is pending diagnosis.
+Which address a request is counted against is decided in `client_ip.py`. Keying on the rightmost
+X-Forwarded-For entry, as this module first did, counted one client once per Render proxy in
+production (silent failure 3, docs/silent_failures.md).
 """
 
 import math
@@ -40,6 +32,7 @@ from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 
 from govbr_classifier.api import ip_diagnostics
+from govbr_classifier.api.client_ip import client_key
 from govbr_classifier.settings import get_settings
 
 LIMITED_PREFIX = "/v1/"
@@ -47,14 +40,6 @@ LIMITED_PREFIX = "/v1/"
 _storage = MemoryStorage()
 _window = FixedWindowRateLimiter(_storage)
 _limit: RateLimitItem = parse(get_settings().rate_limit)
-
-
-def client_ip(request: Request) -> str:
-    """Return the address the limit is counted against."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[-1].strip()
-    return request.client.host if request.client else "unknown"
 
 
 def reset() -> None:
@@ -78,7 +63,7 @@ async def rate_limit_middleware(
     if not request.url.path.startswith(LIMITED_PREFIX):
         return await call_next(request)
 
-    key = client_ip(request)
+    key = client_key(request)
     if get_settings().rate_limit_diagnostics:
         ip_diagnostics.log_request_shape(request, key)
     if not _window.hit(_limit, key):

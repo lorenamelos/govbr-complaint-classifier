@@ -72,7 +72,7 @@ def test_line_describes_the_header_shape(diagnostics_on: pytest.LogCaptureFixtur
     (line,) = lines(diagnostics_on)
     assert field(line, "xff_entries") == "3"
     assert field(line, "xff_classes") == "testnet,other,cloudflare"
-    assert field(line, "key_class") == "cloudflare"
+    assert field(line, "key_class") == "other"
     assert field(line, "cf_connecting_ip_at") == "-2"
     assert field(line, "true_client_ip_at") == "absent"
     assert field(line, "present") == "x-forwarded-for,cf-connecting-ip"
@@ -82,13 +82,15 @@ def test_line_describes_the_header_shape(diagnostics_on: pytest.LogCaptureFixtur
 def test_reports_when_the_key_changes_for_the_same_client(
     diagnostics_on: pytest.LogCaptureFixture,
 ) -> None:
-    # The suspected production failure: same client, rightmost entry rotating between edges.
-    for edge in (CF_EDGE, CF_EDGE_2, CF_EDGE):
-        client.post("/v1/classify", json=BODY, headers={"x-forwarded-for": f"{CLIENT}, {edge}"})
-    first, second, third = lines(diagnostics_on)
-    assert field(first, "key_changed") == "first"
-    assert field(second, "key_changed") == "true"
-    assert field(third, "distinct_keys_seen") == "2"
+    # Rotating edges no longer changes the key (client_ip.py); a different client does.
+    for client_ip in (CLIENT, CLIENT, "1.1.1.1"):
+        for edge in (CF_EDGE, CF_EDGE_2):
+            client.post(
+                "/v1/classify", json=BODY, headers={"x-forwarded-for": f"{client_ip}, {edge}"}
+            )
+    changed = [field(line, "key_changed") for line in lines(diagnostics_on)]
+    assert changed == ["first", "false", "false", "false", "true", "false"]
+    assert field(lines(diagnostics_on)[-1], "distinct_keys_seen") == "2"
 
 
 def test_forged_cloudflare_header_is_marked(diagnostics_on: pytest.LogCaptureFixture) -> None:
