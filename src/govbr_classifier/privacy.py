@@ -7,16 +7,22 @@ pattern never sees what an earlier one masked:
 1. CPF-shaped numbers, with or without dots, dashes or spaces -> [CPF]. The word "cpf" is the topic
    of thousands of complaints, identifies nobody, and is never masked.
 2. Phone numbers -> [TELEFONE].
-3. E-mail addresses -> [EMAIL].
-4. Names after a self-introduction ("me chamo", "meu nome é", "sou o/a") -> [NOME].
-5. Any remaining run of 8 or more digits (protocol, RG, NIS) -> [NUMERO].
+3. E-mail addresses -> [EMAIL]: text, "@", then a domain with a dot or a known provider, even
+   without ".com" ("fulano@gmail").
+4. Social profiles -> [PERFIL]: "@" at the start of a token followed by 3 or more letters, digits,
+   dots or underscores ("@fulano123").
+5. Names after a self-introduction ("me chamo", "meu nome é", "sou o/a") -> [NOME].
+6. Any remaining run of 8 or more digits (protocol, RG, NIS) -> [NUMERO].
+
+Every other "@" stays: censored swearing ("porc@ria", "b@#ta") and runs of symbols in place of a
+swear word ("@%#$") are part of the complaint and identify nobody.
 
 Known limit: names are found only after a self-introduction. "A atendente Maria não ajudou" keeps
 the name. That is why `capitalized_mid_sentence` exists: it flags texts for a human to read before
 they are shared. This mask is not enough for the LLM step and must be revisited there.
 
-`assert_masked` is the last barrier: it raises when a CPF pattern, a run of 8 or more digits or an
-"@" survives. Its message never contains the text.
+`assert_masked` is the last barrier: it raises when a CPF pattern, a run of 8 or more digits, an
+e-mail or a profile survives. Its message never contains the text.
 """
 
 import re
@@ -24,7 +30,9 @@ from dataclasses import dataclass
 
 CPF = re.compile(r"(?<!\d)\d{3}[\s.-]*\d{3}[\s.-]*\d{3}[\s./-]*\d{2}(?!\d)")
 PHONE = re.compile(r"\(?\b\d{2}\)?\s?9?\d{4}-?\d{4}\b")
-EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+_PROVIDERS = r"(?:gmail|hotmail|outlook|yahoo|bol|uol|icloud|live)"
+EMAIL = re.compile(rf"[\w.+-]+@(?:[\w-]+(?:\.[\w-]+)+|{_PROVIDERS}\b)", re.IGNORECASE)
+PROFILE = re.compile(r"(?<![\w@])@[\w.]{3,}")
 _NAME_WORD = r"[^\W\d_][^\W\d_'-]*"
 _CAPITALIZED = r"[A-ZÀ-Ý][^\W\d_'-]*"
 _CONNECTOR = r"(?:d[aoe]s?|e)"
@@ -41,6 +49,7 @@ MARKERS = {
     "cpf": "[CPF]",
     "phone": "[TELEFONE]",
     "email": "[EMAIL]",
+    "profile": "[PERFIL]",
     "name": "[NOME]",
     "number": "[NUMERO]",
 }
@@ -74,9 +83,9 @@ def _replace_group(pattern: re.Pattern[str], marker: str, text: str) -> tuple[st
 
 
 def mask(text: str) -> Masked:
-    """Mask CPF, phone, e-mail, introduced names and long numbers, in that order."""
+    """Mask CPF, phone, e-mail, profile, introduced names and long numbers, in that order."""
     counts = dict.fromkeys(MARKERS, 0)
-    for kind, pattern in (("cpf", CPF), ("phone", PHONE), ("email", EMAIL)):
+    for kind, pattern in (("cpf", CPF), ("phone", PHONE), ("email", EMAIL), ("profile", PROFILE)):
         text, counts[kind] = pattern.subn(MARKERS[kind], text)
     for pattern in (NAME_AFTER_INTRO, NAME_AFTER_SOU):
         text, found = _replace_group(pattern, MARKERS["name"], text)
@@ -86,8 +95,8 @@ def mask(text: str) -> Masked:
 
 
 def assert_masked(text: str, item: str) -> None:
-    """Raise if a CPF pattern, 8 or more digits or an "@" survived. Names only the item."""
-    checks = {"cpf pattern": CPF, "8+ digits": LONG_NUMBER, "@": re.compile("@")}
+    """Raise if a CPF pattern, 8+ digits, an e-mail or a profile survived. Names only the item."""
+    checks = {"cpf pattern": CPF, "8+ digits": LONG_NUMBER, "email": EMAIL, "profile": PROFILE}
     found = [name for name, pattern in checks.items() if pattern.search(text)]
     if found:
         raise PersonalDataLeakError(f"{item}: personal data survived the mask ({', '.join(found)})")

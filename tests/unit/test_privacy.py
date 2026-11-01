@@ -60,7 +60,10 @@ def test_specific_patterns_win_over_numero() -> None:
     assert mask("cpf 12345678909").text == "cpf [CPF]"
 
 
-@pytest.mark.parametrize("leak", ["cpf 123.456.789-09", "protocolo 123456789", "fulano@exemplo"])
+@pytest.mark.parametrize(
+    "leak",
+    ["cpf 123.456.789-09", "protocolo 123456789", "fulano@gmail", "segue @fulano123"],
+)
 def test_the_last_barrier_fails_on_unmasked_text(leak: str) -> None:
     # Deliberately unmasked input: the barrier must stop it, and must not echo it.
     with pytest.raises(PersonalDataLeakError) as error:
@@ -73,3 +76,49 @@ def test_capitalized_word_mid_sentence_is_flagged_for_review() -> None:
     assert capitalized_mid_sentence("a atendente Maria não ajudou")
     assert not capitalized_mid_sentence("O app trava. Depois abre.")
     assert not capitalized_mid_sentence("o app NÃO abre, me chamo [NOME]")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "essa porc@ria não abre",
+        "uma b@#ta",
+        "ótimo @",
+        "esse app está uma 163!%!$×$@",  # noqa: RUF001 (the multiplication sign is the case)
+        "lixo ..... @%#$£ .... !!!",
+        "aplicativo, %@%$€ nada funciona",
+        "não serve para #$-#@ nenhuma",
+    ],
+)
+def test_censored_swearing_and_loose_at_signs_stay_intact(text: str) -> None:
+    result = mask(text)
+    assert result.text == text
+    assert_masked(result.text, "t")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("@fulano123", "[PERFIL]"),
+        ("me segue no @gov.br", "me segue no [PERFIL]"),
+        ("@nome_sobrenome respondeu", "[PERFIL] respondeu"),
+    ],
+)
+def test_profiles_are_masked(text: str, expected: str) -> None:
+    result = mask(text)
+    assert result.text == expected
+    assert result.counts["profile"] == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("manda pra fulano@gmail", "manda pra [EMAIL]"),
+        ("fulano@exemplo.com.br", "[EMAIL]"),
+        ("Fulano.Teste@hotmail.com, obrigado", "[EMAIL], obrigado"),
+    ],
+)
+def test_emails_are_masked_even_without_dot_com(text: str, expected: str) -> None:
+    result = mask(text)
+    assert result.text == expected
+    assert result.counts["email"] == 1
