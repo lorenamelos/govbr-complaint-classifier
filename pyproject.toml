@@ -35,6 +35,8 @@ data = [
     # Pinned exactly: data/collect.py calls a private function of this version.
     "google-play-scraper==1.2.7",
     "pyarrow>=16.0",
+    # Annotation spreadsheet (annotation/ only; the API never imports it).
+    "openpyxl>=3.1",
 ]
 # LLM labeling of the training set and the offline cost benchmark (ADR-19, ADR-20).
 labeling = [
@@ -55,6 +57,7 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "types-PyYAML>=6.0",
+    "types-openpyxl>=3.1",
 ]
 
 [tool.setuptools.packages.find]
