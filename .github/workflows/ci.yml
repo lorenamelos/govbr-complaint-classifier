@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# An explicit bash runs every step as `bash -e -o pipefail`; the implicit default has no pipefail,
+# so a failure on the left of a pipe (`curl ... | tee`) would pass unnoticed.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -68,15 +74,18 @@ jobs:
             curl -fsS http://localhost:10001/health/live >/dev/null 2>&1 && break
             sleep 1
           done
-          servers=$(docker logs api-workers 2>&1 | grep -c "Started server process")
+          logs=$(docker logs api-workers 2>&1)
+          servers=$(grep -c "Started server process" <<<"$logs" || true)
           echo "server processes: $servers"
           test "$servers" -eq 1
       - name: One rate-limit counter per client
         run: python3 scripts/check_single_counter.py http://localhost:10001
       - name: No request lines in the container log
-        # The access log writes the connecting IP on every request; it must stay off.
+        # The access log writes the connecting IP on every request; it must stay off. The log is read
+        # into a variable first: with pipefail, `docker logs | grep -q` can lose the match to SIGPIPE.
         run: |
-          if docker logs api 2>&1 | grep -q '"POST /v1/classify'; then
+          logs=$(docker logs api 2>&1)
+          if grep -q '"POST /v1/classify' <<<"$logs"; then
             echo "access log is on: request lines with client addresses reached the log"
             exit 1
           fi

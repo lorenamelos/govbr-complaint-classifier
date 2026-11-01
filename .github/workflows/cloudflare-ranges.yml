@@ -7,6 +7,12 @@ on:
     - cron: "0 9 * * 1"  # Mondays 09:00 UTC
   workflow_dispatch:
 
+# An explicit bash runs every step as `bash -e -o pipefail`; the implicit default has no pipefail,
+# so a failure on the left of a pipe (`curl ... | tee`) would pass unnoticed.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check:
     runs-on: ubuntu-latest

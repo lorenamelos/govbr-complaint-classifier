@@ -1,5 +1,11 @@
 .PHONY: help venv install lint format typecheck test test-all smoke-installed api docker-build clean
 
+# Fail on any error, unset variable, or failure anywhere in a pipe: `make test | tail` once
+# hid a failing test and a commit went in on top of it. The flags sit in SHELL too because the make
+# that ships with macOS (3.81) ignores .SHELLFLAGS; make 4.x reads both and just repeats them.
+SHELL := /bin/bash -eu -o pipefail
+.SHELLFLAGS := -eu -o pipefail -c
+
 PYTHON ?= python3.12
 VENV := .venv-govbr-complaint-classifier
 BIN := $(VENV)/bin
