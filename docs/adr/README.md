@@ -97,6 +97,14 @@ it instead of rewriting.
   When a mechanism is cited, the theme is that mechanism's ("me obrigam a fazer reconhecimento
   facial" is `verificacao_identidade`). Rubric version 3 (`docs/rubric/annotation_rubric.pt.md`,
   now the official text, with an English translation) records it.
+- 2026-11-01 (ADR-07): before the final set, a 50-item annotation pilot (`docs/annotation/pilot.md`)
+  measures annotation speed and self-agreement and is never part of the test or calibration sets.
+  The unit is the unique text (`data/text_key.py`), stratified by its most frequent rating (lowest
+  on a tie): 40 random items, 8 per rating, with selection probability 8 / unique texts in the
+  stratum, plus 10 stress items chosen by rule with no probability. The final sample is drawn from
+  the universe minus every copy of the 50 pilot texts, excluded by text key so a later copy under a
+  new review id cannot return, and its selection probabilities are computed on that reduced
+  universe.
 - 2026-11-01 (ADR-21): `model_version` becomes
   `2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2`. The keyword lists did not change,
   but the same input now gets a different answer: "ok" is classified instead of 422, an emoji is

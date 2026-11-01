@@ -119,18 +119,21 @@ Endpoints:
 ```
 data/              never committed; see data/README.md for layout and privacy rules
 docs/adr/          architecture decision records
-docs/rubric/       annotation rubric (written before annotating)
+docs/rubric/       annotation rubric, Portuguese official, English translation
+docs/annotation/   annotation pilot: what it is, selection, exclusion, privacy
 models/            artifacts; not committed
 notebooks/         exploration only; anything reusable moves to src/
 scripts/           CLI entry points (collect, label, train, benchmark)
 src/govbr_classifier/
   taxonomy.yaml    closed label lists; ships inside the package so the container can read it
   settings.py      runtime settings via pydantic-settings, read from the environment
+  privacy.py       masks personal data in review text before it leaves the analysis
   api/             FastAPI app, schemas, routes
   guards/          contract checks and out-of-distribution detectors
   models/          baseline and trained classifiers behind one interface
   monitoring/      drift statistics, health checks, prediction log
   data/            Google Play collection and dataset building
+  annotation/      annotation pilot, spreadsheet and strict reader; offline, never imported by the API
   labeling/        LLM labeling with closed-list validation
   evaluation/      per-class metrics, calibration, agreement
 tests/             unit tests mirror src/; integration tests are marked

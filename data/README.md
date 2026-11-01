@@ -20,6 +20,7 @@ duplicate review IDs across the run.
 | --- | --- | --- |
 | `raw/<run_id>/` | One collection run: `part-*.parquet` exactly as collected (author fields included), `state.json` to resume, `metadata.json` | `scripts/collect_reviews.py` |
 | `interim/` | `reviews.parquet`, one row per review ID, no authorship, plus `reviews.metadata.json` | `scripts/build_interim.py` |
+| `pilot/` | Annotation pilot: `manifest.csv` (the 50 items and their text keys, which keep them out of the final sample) and `link.csv` (item id to review id, rating, stratum, probability, origin, original length, API guard result). See `docs/annotation/pilot.md` | `scripts/select_pilot.py` |
 | `review/` | Hand review of heuristic flags: `other_language.csv` holds, per flagged review, its text (to read while reviewing; flags with a personal-data pattern are left out), a proposed label and an `owner_label` column for the owner's correction | notebook 01, by hand |
 | `labeled/llm/` | Training set labeled by the LLM, with prompt version and model id | `scripts/label_with_llm.py` |
 | `labeled/human/` | Hand annotations: `calibration` (40%) and `test` (60%) splits | manual annotation |
