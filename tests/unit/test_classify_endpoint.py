@@ -30,8 +30,9 @@ def post(payload: dict) -> tuple[int, dict]:
     [
         ("empty batch", {"items": []}),
         ("batch above 50", {"items": [{"text": "app ruim demais"}] * 51}),
-        ("text below 3 chars", {"items": [{"text": "ab"}]}),
+        ("empty text", {"items": [{"text": ""}]}),
         ("whitespace only text", {"items": [{"text": "     "}]}),
+        ("tabs and newlines only", {"items": [{"text": "\t\n "}]}),
         ("text above 2000 chars", {"items": [{"text": "a" * 2001}]}),
         ("missing text", {"items": [{"rating": 1}]}),
         ("unknown top-level field", {"items": [{"text": "app ruim demais"}], "engine": "llm"}),
@@ -46,8 +47,58 @@ def test_contract_violation_returns_422(case: str, payload: dict) -> None:
 
 def test_one_bad_item_rejects_the_whole_batch() -> None:
     # ADR-02: no partial answers. A batch is accepted or refused as a unit.
-    status, _ = post({"items": [{"text": "o app esta muito lento"}, {"text": "ab"}]})
+    status, _ = post({"items": [{"text": "o app esta muito lento"}, {"text": "   "}]})
     assert status == 422
+
+
+# ---------- No minimum length: short text reaches the model (ADR-03, 2026-11-01) ----------
+
+
+@pytest.mark.parametrize("text", ["ok", "ab", "a", "10"])
+def test_short_text_is_valid_and_reaches_the_model(text: str) -> None:
+    # The old 3-character minimum sent "ok" (about 10 thousand real reviews) to 422 and took the
+    # rest of the batch with it. Now it is classified, and the model abstains if it finds nothing.
+    status, body = post({"items": [{"text": text}]})
+
+    assert status == 200
+    result = body["results"][0]
+    assert result["status"] == "classified"
+    assert result["attributes"]["tema"] == {
+        "status": "abstained",
+        "labels": [],
+        "scores": {},
+        "reason": "below_threshold",
+    }
+
+
+# ---------- Out of distribution: low_text_quality (ADR-04) ----------
+
+
+@pytest.mark.parametrize("text", ["👍", "👎", "😡😡😡", "???", "!!! ...", "❤️ 🙏"])
+def test_text_without_letters_or_digits_is_low_text_quality(text: str) -> None:
+    status, body = post({"items": [{"id": "x", "text": text}]})
+
+    assert status == 200
+    assert body["results"][0] == {
+        "id": "x",
+        "status": "out_of_distribution",
+        "ood_reason": "low_text_quality",
+        "warnings": [],
+        "attributes": None,
+    }
+
+
+def test_one_emoji_item_does_not_take_the_batch_with_it() -> None:
+    # Per item, not per batch (ADR-02): the neighbors are still classified.
+    texts = ["o app esta muito lento", "👍", "ok"]
+    status, body = post({"items": [{"id": str(i), "text": t} for i, t in enumerate(texts)]})
+
+    assert status == 200
+    assert [result["status"] for result in body["results"]] == [
+        "classified",
+        "out_of_distribution",
+        "classified",
+    ]
 
 
 # ---------- 200: tema predicted or abstained, the rest not_implemented ----------
@@ -99,8 +150,8 @@ def test_other_attributes_always_abstain_with_not_implemented(text: str) -> None
         }, name
 
 
-def test_every_item_is_classified_while_the_ood_guards_do_not_exist() -> None:
-    # The OOD layer is a later build step; until then nothing is marked out of distribution.
+def test_other_language_is_still_classified_while_its_detector_does_not_exist() -> None:
+    # Only low_text_quality is built; the language and off_domain detectors are a later step.
     status, body = post({"items": [{"text": "this review is written in english"}]})
 
     assert status == 200

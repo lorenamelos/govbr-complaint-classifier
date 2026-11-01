@@ -27,7 +27,7 @@ class ReviewIn(BaseModel):
     """One item to classify. Only `text` is required (ADR-01)."""
 
     id: str | None = Field(default=None, max_length=128, description="Client-side id, echoed back.")
-    text: str = Field(min_length=_settings.min_text_chars, max_length=_settings.max_text_chars)
+    text: str = Field(min_length=1, max_length=_settings.max_text_chars)
     # Logged for monitoring only. Never a model feature (ADR-01).
     rating: int | None = Field(default=None, ge=1, le=5)
     app_version: str | None = Field(default=None, max_length=32)
@@ -36,10 +36,15 @@ class ReviewIn(BaseModel):
     @field_validator("text")
     @classmethod
     def text_not_blank(cls, value: str) -> str:
-        """Reject whitespace-only text as a contract violation, not as out of distribution."""
+        """Reject empty or whitespace-only text; that is the only length rule (ADR-03).
+
+        There is no minimum length. "ok" is valid and reaches the model, which abstains if it finds
+        nothing to go on; an emoji alone is valid and comes back out of distribution. A contract
+        error rejects the whole batch, so it is kept for text that has nothing in it at all.
+        """
         stripped = value.strip()
-        if len(stripped) < _settings.min_text_chars:
-            raise ValueError(f"text must have at least {_settings.min_text_chars} non-space chars")
+        if not stripped:
+            raise ValueError("text must not be empty or whitespace only")
         return stripped
 
 

@@ -6,18 +6,16 @@ are always present in the response and always abstain with `not_implemented`.
 Before any of this, a call over the per-IP limit gets 429 from middleware (ADR-18,
 `api/rate_limit.py`), so malformed batches count toward the limit too.
 
-Before any of this, a call over the per-IP limit gets 429 from middleware (ADR-18,
-`api/rate_limit.py`), so malformed batches count toward the limit too.
-
-Two layers of the three in ADR-02 are active here:
+The three layers of ADR-02:
 
 - 422 rejects the whole batch. FastAPI raises it from `ClassifyRequest` validation, so the handler
-  never sees a malformed batch and never partially answers one.
+  never sees a malformed batch and never partially answers one. Only empty or whitespace-only text
+  is a contract error; there is no minimum length (ADR-03).
+- Out of distribution is a 200 per item. One detector of the three in ADR-04 exists:
+  `low_text_quality` for text with no letter and no digit (`guards/text_quality.py`). `language`
+  and `off_domain` are not built yet, so text in English or off topic still comes back
+  `classified`.
 - Abstention is a 200 per attribute.
-
-The middle layer, out of distribution per item, is not built yet: `guards/` is empty, so every item
-that passes the contract comes back as `classified`. Adding the detectors is a later step and will
-not change this schema.
 """
 
 import time
@@ -35,6 +33,7 @@ from govbr_classifier.api.schemas import (
     ReviewIn,
     SingleLabelResult,
 )
+from govbr_classifier.guards.text_quality import has_letters_or_digits
 from govbr_classifier.models.keyword_baseline import MODEL_VERSION, predict_tema
 
 router = APIRouter(prefix="/v1", tags=["classify"])
@@ -54,7 +53,9 @@ def _classify_tema(text: str) -> MultiLabelResult:
 
 
 def _classify_item(item: ReviewIn) -> ItemResult:
-    """Classify one item. `rating` and the other optional inputs are never read as features."""
+    """Guard, then classify one item. `rating` and the other optional inputs are never features."""
+    if not has_letters_or_digits(item.text):
+        return ItemResult(id=item.id, status="out_of_distribution", ood_reason="low_text_quality")
     return ItemResult(
         id=item.id,
         status="classified",

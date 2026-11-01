@@ -107,8 +107,10 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
   problem label always wins over `nenhum` (ADR-05), the review comes back as a complaint about
   support. Topic words such as "atendimento", "suporte" and "chat" name a subject, not a problem.
   Left as is until the keyword lists are re-derived from labeled data.
-- **Out of distribution**: not detected yet. Every valid item comes back `classified`, including text
-  that is not a gov.br review.
+- **Out of distribution**: one detector of three is active. Text with no letter and no digit (an
+  emoji alone, punctuation only) comes back `out_of_distribution` with `low_text_quality`, item by
+  item, without affecting the rest of the batch. The `language` and `off_domain` detectors do not
+  exist yet, so text in another language or off topic still comes back `classified`.
 - **Prediction log: not active yet.** Requests are not recorded anywhere (ADR-17 is the next build
   step), so there is no drift, canary or freshness reporting, and `/v1/health`, `/v1/drift` and
   `/v1/model` do not exist yet.
@@ -117,8 +119,9 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
   with `Retry-After`; every `/v1/` response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`
   and `X-RateLimit-Reset`. Known limitation: a client that uses both IPv4 and IPv6 is counted
   twice, so it can get up to 60. See [silent failure 3](docs/silent_failures.md).
-- **Contract**: 1 to 50 items per call, Portuguese text of 3 to 2,000 characters. Any contract error
-  rejects the whole batch with `422`.
+- **Contract**: 1 to 50 items per call, Portuguese text of up to 2,000 characters. There is no
+  minimum length: only empty or whitespace-only text is a contract error. Short text such as "ok"
+  is classified (and usually abstains). Any contract error rejects the whole batch with `422`.
 - **Cold start**: the free plan stops the service after 15 minutes without traffic. The next call wakes
   it and can take about a minute; later calls are warm. Latency is reported split by cold and warm
   (ADR-16), so a slow first call is expected, not a fault.

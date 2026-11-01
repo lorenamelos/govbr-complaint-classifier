@@ -57,7 +57,10 @@ Endpoints:
 ## Rules that are easy to break by accident
 
 **Contract (ADR-01 to ADR-04)**
-- Text: Portuguese, 3 to 2,000 characters. Batch: 1 to 50 items. Contract errors reject the whole batch with 422.
+- Text: Portuguese, up to 2,000 characters. Batch: 1 to 50 items. Contract errors reject the whole batch with 422.
+- No minimum length: only empty or whitespace-only text is a 422. Text with no letter or digit (emoji or
+  punctuation only) is out of distribution with `low_text_quality`. Short text such as "ok" goes to the
+  model, which abstains if it finds nothing.
 - Text above the training p99 length gets `warning: length_above_training_p99`, not a rejection.
 - Rating, app version and date are optional inputs. **The rating is never a model feature**; it is logged
   for monitoring only.

@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     rate_limit: str = "30/minute"
     max_batch_size: int = 50
 
-    # Contract limits (ADR-03)
-    min_text_chars: int = 3
+    # Contract limits (ADR-03). There is no minimum length: only empty or whitespace-only text is a
+    # contract error; text with no letter or digit is out of distribution (guards/text_quality.py).
     max_text_chars: int = 2000
 
     log_level: str = "INFO"

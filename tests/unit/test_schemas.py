@@ -11,9 +11,16 @@ from govbr_classifier.api.schemas import (
 )
 
 
-def test_whitespace_only_text_is_a_contract_error() -> None:
+@pytest.mark.parametrize("text", ["", "     ", "\n\t"])
+def test_empty_or_whitespace_only_text_is_a_contract_error(text: str) -> None:
     with pytest.raises(ValidationError):
-        ClassifyRequest(items=[{"text": "     "}])
+        ClassifyRequest(items=[{"text": text}])
+
+
+@pytest.mark.parametrize("text", ["ok", "a", "👍", "?"])
+def test_there_is_no_minimum_length(text: str) -> None:
+    # ADR-03, 2026-11-01: short text is the model's to judge, emoji the guard's; neither is a 422.
+    assert ClassifyRequest(items=[{"text": text}]).items[0].text == text
 
 
 def test_text_above_limit_is_a_contract_error() -> None:
