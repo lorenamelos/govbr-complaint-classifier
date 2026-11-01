@@ -91,6 +91,12 @@ it instead of rewriting.
   Obligation ("me obrigam a...") is not a label: the rubric annotates it by the mechanism cited. It
   appears in 1,677 reviews (0.78% of unique 1-2 star texts); 30 test cases would need about 6,400
   hand labels from that pool, so it becomes a label only if the annotated test set reaches 30.
+- 2026-11-01 (ADR-05): obligation with no mechanism cited ("é obrigatório usar o app pra tudo")
+  goes to `tema = outro`, with "obrigatoriedade" in the note. Why: the obligation itself is then
+  the subject, it is a candidate for a new theme, and `outro` is what feeds the new-theme alarm.
+  When a mechanism is cited, the theme is that mechanism's ("me obrigam a fazer reconhecimento
+  facial" is `verificacao_identidade`). Rubric version 3 (`docs/rubric/annotation_rubric.pt.md`,
+  now the official text, with an English translation) records it.
 - 2026-11-01 (ADR-21): `model_version` becomes
   `2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2`. The keyword lists did not change,
   but the same input now gets a different answer: "ok" is classified instead of 422, an emoji is

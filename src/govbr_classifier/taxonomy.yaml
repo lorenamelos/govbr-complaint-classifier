@@ -39,7 +39,7 @@ attributes:
 
   acionabilidade:
     cardinality: single
-    description: Is there enough information to act? See docs/rubric/annotation_rubric.md.
+    description: Is there enough information to act? See docs/rubric/annotation_rubric.pt.md.
     labels:
       sim: Names at least one of service or feature, failing step, error message, device or OS.
       nao: None of the above.
