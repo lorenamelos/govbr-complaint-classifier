@@ -53,7 +53,7 @@ Response (`request_id` and `latency_ms` vary):
 ```json
 {
   "request_id": "12fadd77-2411-4c97-8ee6-124da855b252",
-  "model_version": "2026.10.1-tema-keyword-baseline",
+  "model_version": "2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2",
   "results": [
     {
       "id": "1",
@@ -98,15 +98,19 @@ curl https://govbr-complaint-classifier.onrender.com/health/live
 
 ### What is served today, and what is not
 
-- **Model**: `2026.10.1-tema-keyword-baseline`, a keyword list written before any data was collected.
+- **Model**: `2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2`, a keyword list written
+  before any data was collected, served with the 2026-11-01 contract, the `low_text_quality` guard
+  and taxonomy v2 (the name says what changed since `2026.10.1`; the keyword lists did not).
   It has **no measured metrics**. It fills `tema` only; the other three attributes always abstain with
   `not_implemented`. For `tema`, `below_threshold` here means no keyword matched: the attribute abstains
-  instead of guessing `outro`. On the 800,069 collected reviews it abstains on 52.6%.
+  instead of guessing `outro` or `nao_especificado`. On the 800,069 collected reviews it abstains on 52.6%.
   **Known problem:** praise of the support channel is classified as a complaint. In "atendimento
   ótimo", "atendimento" matches the `atendimento` theme and "ótimo" matches `nenhum`; since a
   problem label always wins over `nenhum` (ADR-05), the review comes back as a complaint about
   support. Topic words such as "atendimento", "suporte" and "chat" name a subject, not a problem.
-  Left as is until the keyword lists are re-derived from labeled data.
+  Same kind of problem: "não funciona" with no subject is `nao_especificado` in the rubric, but the
+  baseline matches it as `servico_nao_carrega`; it never produces `nao_especificado`. Left as is
+  until the keyword lists are re-derived from labeled data.
 - **Out of distribution**: one detector of three is active. Text with no letter and no digit (an
   emoji alone, punctuation only) comes back `out_of_distribution` with `low_text_quality`, item by
   item, without affecting the rest of the batch. The `language` and `off_domain` detectors do not

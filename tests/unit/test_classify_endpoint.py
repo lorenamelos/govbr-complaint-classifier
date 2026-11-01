@@ -121,9 +121,11 @@ def test_matching_text_predicts_tema() -> None:
     assert tema["reason"] is None
 
 
-def test_unmatched_text_abstains_on_tema_without_falling_back() -> None:
-    # ADR-08: when no label passes, the attribute abstains; it never becomes `outro`.
-    status, body = post({"items": [{"text": "hmm"}]})
+@pytest.mark.parametrize("text", ["hmm", "péssimo"])
+def test_unmatched_text_abstains_on_tema_without_falling_back(text: str) -> None:
+    # ADR-08: when no label passes, the attribute abstains; it never becomes `outro` or
+    # `nao_especificado`, even when a human would label the text so ("péssimo").
+    status, body = post({"items": [{"text": text}]})
 
     assert status == 200
     tema = body["results"][0]["attributes"]["tema"]

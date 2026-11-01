@@ -5,7 +5,12 @@ collected, so a test here asserts how matching works ("whole word", "nenhum lose
 never that a particular term is present.
 """
 
-from govbr_classifier.models.keyword_baseline import TEMA_KEYWORDS, normalize, predict_tema
+from govbr_classifier.models.keyword_baseline import (
+    TAXONOMY_VERSION,
+    TEMA_KEYWORDS,
+    normalize,
+    predict_tema,
+)
 from govbr_classifier.taxonomy import load_taxonomy
 
 
@@ -64,6 +69,19 @@ def test_every_keyword_label_is_in_the_closed_list() -> None:
 def test_outro_has_no_keywords() -> None:
     # `outro` means "something not on this list", which a closed keyword list cannot detect.
     assert "outro" not in TEMA_KEYWORDS
+
+
+def test_nao_especificado_is_never_produced() -> None:
+    # A complaint with no subject is a label about the text; the baseline cannot tell it from a
+    # complaint whose subject it does not know, so it abstains rather than claim it.
+    assert "nao_especificado" not in TEMA_KEYWORDS
+    for text in ["péssimo", "horrível", "hmm"]:
+        assert predict_tema(text) == ([], {})
+
+
+def test_model_is_tied_to_the_taxonomy_version() -> None:
+    # A label change is a model-version change: the import check fails if the two drift apart.
+    assert load_taxonomy().version == TAXONOMY_VERSION
 
 
 def test_keyword_terms_are_stored_normalized() -> None:

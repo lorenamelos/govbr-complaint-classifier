@@ -12,6 +12,10 @@ Known problem, measured in notebook 01 and left as is until then: some terms nam
 problem. "atendimento ótimo" matches `atendimento` and `nenhum`, the problem-wins rule drops
 `nenhum`, and praise of the support channel comes back as a complaint about it.
 
+Known problem of the same kind: "nao funciona" is a `servico_nao_carrega` term, but the rubric
+labels "não funciona" with no subject as `nao_especificado`. The baseline never produces
+`nao_especificado`, so these reviews come back as a service that does not load.
+
 Two rules keep the baseline from inventing confidence:
 
 - Matching is by whole word (regex word boundaries), never by substring, so "chato" does not match
@@ -19,6 +23,8 @@ Two rules keep the baseline from inventing confidence:
 - `outro` is never produced. It means "a complaint about something not on this list", which a closed
   keyword list cannot detect. When nothing matches, the attribute abstains (ADR-08); it never falls
   back to `outro`.
+- `nao_especificado` is never produced either. It is a label about the text (a complaint with no
+  subject), not the model failing to find one; an abstention must never be reported as it.
 """
 
 import re
@@ -27,8 +33,13 @@ import unicodedata
 from govbr_classifier.models.version import check_model_version
 from govbr_classifier.taxonomy import load_taxonomy
 
-# Format YYYY.MM.N-description, checked at import (models/version.py).
-MODEL_VERSION = check_model_version("2026.10.1-tema-keyword-baseline")
+# Format YYYY.MM.N-description, checked at import (models/version.py). The keyword lists did not
+# change in 2026.11.1, but the same input gets a different answer: no minimum length (contract),
+# low_text_quality for text with no letter or digit (guard) and taxonomy v2. The prediction log
+# separates behavior by this value, so the name says what changed.
+MODEL_VERSION = check_model_version("2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2")
+# The taxonomy version this model was built against. A label change is a model-version change.
+TAXONOMY_VERSION = 2
 
 # Terms are written without accents: the text is normalized the same way before matching.
 # A term may be a phrase; whitespace inside it matches any run of whitespace in the text.
@@ -137,8 +148,14 @@ _PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
 
 
 def _check_labels_are_in_taxonomy() -> None:
-    """Fail at import time if a keyword label is not in the closed list (taxonomy.yaml)."""
-    allowed = set(load_taxonomy().attributes["tema"].labels)
+    """Fail at import time if the taxonomy changed under this model or a label is not in it."""
+    taxonomy = load_taxonomy()
+    if taxonomy.version != TAXONOMY_VERSION:
+        raise ValueError(
+            f"taxonomy.yaml is version {taxonomy.version}, this model was built for "
+            f"{TAXONOMY_VERSION}: a label change needs a new MODEL_VERSION"
+        )
+    allowed = set(taxonomy.attributes["tema"].labels)
     unknown = set(TEMA_KEYWORDS) - allowed
     if unknown:
         raise ValueError(f"keyword labels not in the tema taxonomy: {sorted(unknown)}")

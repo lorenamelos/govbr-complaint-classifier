@@ -2,13 +2,13 @@
 # Single source of truth: the API schemas, the LLM labeling prompt and the evaluation all read this file.
 # Changing a label here is a model-version change and must be recorded in docs/adr.
 
-version: 1
+version: 2   # 2: tema gains nao_especificado (ADR-05 revision, 2026-11-01)
 
 attributes:
   tema:
     cardinality: multi
     description: What the review is about.
-    exclusive: [outro, nenhum]   # each can only appear alone
+    exclusive: [outro, nenhum, nao_especificado]   # each can only appear alone
     labels:
       login_autenticacao: Cannot log in, password, two-factor, account access.
       verificacao_identidade: Facial recognition, document validation, account level (bronze/silver/gold).
@@ -16,7 +16,8 @@ attributes:
       lentidao: App or a screen is slow.
       servico_nao_carrega: A specific service or page does not load or returns an error.
       atendimento: Support channels, lack of human help, unanswered requests.
-      outro: A complaint about something not on this list.
+      outro: A complaint about an identifiable subject that is not on this list.
+      nao_especificado: A complaint with no identifiable subject (for example "péssimo", "não funciona").
       nenhum: No problem described (for example praise).
 
   bloqueio:

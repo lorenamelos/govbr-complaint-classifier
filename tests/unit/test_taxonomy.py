@@ -12,11 +12,17 @@ def test_exactly_the_four_scoped_attributes() -> None:
     assert set(load_taxonomy().attributes) == EXPECTED_ATTRIBUTES
 
 
-def test_tema_has_both_escape_values_and_they_are_exclusive() -> None:
+def test_tema_has_three_escape_values_and_they_are_exclusive() -> None:
+    # ADR-05: outro (subject off the list), nenhum (no complaint), nao_especificado (complaint with
+    # no subject, revision of 2026-11-01). Each can only appear alone.
     tema = load_taxonomy().attributes["tema"]
     assert tema.cardinality == "multi"
-    assert {"outro", "nenhum"} <= set(tema.labels)
-    assert set(tema.exclusive) == {"outro", "nenhum"}
+    assert {"outro", "nenhum", "nao_especificado"} <= set(tema.labels)
+    assert set(tema.exclusive) == {"outro", "nenhum", "nao_especificado"}
+
+
+def test_taxonomy_is_version_2() -> None:
+    assert load_taxonomy().version == 2
 
 
 def test_cannot_know_is_a_label_not_an_abstention() -> None:

@@ -81,7 +81,11 @@ class SingleLabelResult(BaseModel):
 
 
 class MultiLabelResult(BaseModel):
-    """Result for the multi-label `tema` attribute. Never falls back to `outro` (ADR-08)."""
+    """Result for the multi-label `tema` attribute.
+
+    Never falls back to `outro` or `nao_especificado` (ADR-08): both are labels about the text, and
+    a model that finds nothing abstains instead.
+    """
 
     status: Literal["predicted", "abstained"]
     labels: list[str] = Field(default_factory=list)
