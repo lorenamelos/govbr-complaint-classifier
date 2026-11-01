@@ -43,3 +43,31 @@ attributes:
     labels:
       sim: Names at least one of service or feature, failing step, error message, device or OS.
       nao: None of the above.
+
+# Fields used only while annotating (human pilot and spreadsheet, and the LLM labeler for ood_manual).
+# The API never reads this section: taxonomy.py parses `attributes` only. Nothing here is a label the
+# model predicts, so changing it is not a model-version change. Rules: docs/rubric/annotation_rubric.pt.md.
+annotation:
+  ood_manual:
+    description: Annotator's out-of-distribution call. Names match the API's OodReason, plus nao.
+    none_value: nao   # absence of a reason; every other value must be an OodReason
+    values:
+      nao: In Portuguese and about the gov.br app or its services. Annotate the four attributes.
+      language: Mostly in another language.
+      low_text_quality: No readable word (emoji or punctuation only, a meaningless string).
+      off_domain: Not about the app or any of its services.
+  obrigatoriedade:
+    description: Auxiliary box, not a label. Checked when the text says the person is forced to use the app or one of its mechanisms.
+  duvida:
+    description: Main source of doubt for the item, explained in nota_duvida. Blank when there is none.
+    values:
+      ood: Unclear which ood_manual value applies.
+      tema_limite: Between two themes, or a theme and an escape value.
+      tipo: Between two tipo values, even with the precedence rule.
+      bloqueio: Unclear whether the task was completed.
+      acionabilidade: Unclear whether what was named counts as service, step, error or device.
+      cortado: The truncated part could change the answer.
+      enfase: Unclear whether the emphasis changes the reading.
+      sarcasmo: Ambiguous irony, literal reading annotated.
+      obrigatoriedade: Unclear whether there is obligation, or which mechanism.
+      outro_caso: Anything else; describe it.
