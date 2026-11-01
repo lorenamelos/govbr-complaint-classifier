@@ -8,9 +8,9 @@ it instead of rewriting.
 | --- | --- |
 | 01 | Input: text required; rating, app version, date optional. Rating is monitored, never a feature. Train on all ratings. |
 | 02 | Three response layers: 422 rejects the batch; out of distribution is 200 per item; abstention is 200 per attribute. |
-| 03 | Portuguese only, 3 to 2,000 chars, 1 to 50 items. Above training p99 length gets a warning, not a rejection. |
+| 03 | Portuguese only, up to 2,000 chars, no minimum (only empty or whitespace-only is 422), 1 to 50 items. Above training p99 length gets a warning, not a rejection. |
 | 04 | Three OOD detectors with named reasons: language, low_text_quality, off_domain. |
-| 05 | `tema` has `outro` (unlisted complaint) and `nenhum` (no complaint), mutually exclusive. `tipo` has `nenhum`. |
+| 05 | `tema` has `outro` (unlisted subject), `nenhum` (no complaint) and `nao_especificado` (complaint with no subject), mutually exclusive. `tipo` has `nenhum`. |
 | 06 | `nao_da_para_saber` is a label about the text; abstention is the model refusing. Kept separate. |
 | 07 | Hand labels split into calibration (40%) and test (60%). Classes with fewer than 30 test examples report "insufficient evidence". |
 | 08 | Abstention per attribute, threshold for precision >= 0.80 on calibration. Publish coverage and the precision-coverage curve. |
@@ -73,6 +73,31 @@ it instead of rewriting.
   Why: deduplicating moves 1-2 star reviews from 31.5% of reviews to 61.2% of unique texts, and
   precision depends on prevalence; an unweighted precision of 0.80 on the sample would not hold in
   production.
+- 2026-11-01 (ADR-03): the 3-character minimum is removed. A 422 now means only empty or
+  whitespace-only text. Text with no letter and no digit (emoji or punctuation only) is
+  `out_of_distribution` with `low_text_quality`, decided per item by `guards/text_quality.py`, the
+  first ADR-04 detector. Short text such as "ok" reaches the model, which abstains if it finds
+  nothing. Why, measured in notebook 01: the old rule returned 422 for 1.72% of real reviews
+  (13,770), 10,182 of them "ok", and a contract error rejects the whole batch, so one "ok" took up
+  to 49 valid reviews with it. Of those 13,770, 3,226 have no letter or digit and are now
+  `low_text_quality`; 10,544 are classified. The change only widens accepted input; the response
+  schema is unchanged (ADR-21).
+- 2026-11-01 (ADR-05): `tema` gains `nao_especificado`, a complaint with no identifiable subject
+  ("péssimo", "horrível", "não funciona" alone), exclusive like `outro` and `nenhum`. Why: filed
+  under `outro`, these texts would pollute the new-theme alarm that `outro` feeds, since a rise in
+  `outro` should mean an unknown subject, not an angrier mood. It is a label about the text, not an
+  abstention (the same line as ADR-06), and applies to `tema` only: `tipo` and `bloqueio` are
+  annotated as usual ("não funciona" is usually `tipo = bug`). Taxonomy goes to version 2.
+  Obligation ("me obrigam a...") is not a label: the rubric annotates it by the mechanism cited. It
+  appears in 1,677 reviews (0.78% of unique 1-2 star texts); 30 test cases would need about 6,400
+  hand labels from that pool, so it becomes a label only if the annotated test set reaches 30.
+- 2026-11-01 (ADR-21): `model_version` becomes
+  `2026.11.1-tema-keyword-baseline-contract-guard-taxonomy-v2`. The keyword lists did not change,
+  but the same input now gets a different answer: "ok" is classified instead of 422, an emoji is
+  `low_text_quality` instead of classified, and `tema` has a new value. The prediction log (ADR-17)
+  separates behavior by `model_version`; without a new value, drift monitoring would see the
+  out-of-distribution rate jump with no recorded cause. The name lists what changed. The baseline
+  now checks the taxonomy version at import, so a label change cannot ship under the old name.
 
 ## Scope changes
 
