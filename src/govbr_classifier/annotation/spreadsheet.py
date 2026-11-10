@@ -36,6 +36,7 @@ from govbr_classifier.taxonomy import load_taxonomy
 RUBRIC_PATH = PROJECT_ROOT / "docs" / "rubric" / "annotation_rubric.pt.md"
 SHEET_PATH = PROJECT_ROOT / "data" / "pilot" / "pilot_annotation.xlsx"
 BLIND_PATH = PROJECT_ROOT / "data" / "pilot" / "pilot_annotation_blind.xlsx"
+WAVE1_PATH = PROJECT_ROOT / "data" / "sample" / "wave1" / "annotation_wave1.xlsx"
 
 PROTECTED = ("item_id", "texto", "cortado")
 DATETIME_FORMAT = "yyyy-mm-dd hh:mm:ss"
@@ -244,6 +245,13 @@ PILOT_PURPOSE = (
     "O que é: 50 avaliações do Google Play para medir a sua velocidade e achar onde a rubrica gera "
     "dúvida. Não é o conjunto de teste. Os mesmos itens são reanotados pelo menos três semanas "
     "depois, sem olhar a primeira passada."
+)
+
+WAVE1_PURPOSE = (
+    "O que é: onda 1 da amostra final, 300 avaliações do Google Play. Parte foi sorteada ao "
+    "acaso e parte foi direcionada a classes raras; a planilha não diz qual é qual, e isso não "
+    "deve mudar a anotação. Uma semana depois de terminar, 10% são reanotados sem olhar esta "
+    "passada."
 )
 
 README_LINES = (

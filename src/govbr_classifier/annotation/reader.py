@@ -9,7 +9,7 @@ and the column, never the text. The rules are the consistency rules of the rubri
   header alone, and each file is read by the rules of its own version, never a mix;
 - every list value is in taxonomy.yaml (attributes or the annotation section), checkboxes are
   TRUE/FALSE, hora_fim is a date and time;
-- item_id is present, unique and in the pilot link table;
+- item_id is present, unique and in the link table (pilot or wave);
 - ood_manual = nao requires tema (at least one box), tipo, bloqueio and acionabilidade;
 - ood_manual other than nao requires the four attributes and the obrigatoriedade box empty, and
   assunto_outro empty too (v4): with no theme there is no subject to record;
@@ -146,7 +146,7 @@ def read_annotations(
         elif item in seen:
             problems.append(Problem(item, "item_id", "duplicated"))
         elif item not in known_ids:
-            problems.append(Problem(item, "item_id", "not in the pilot link table"))
+            problems.append(Problem(item, "item_id", "not in the link table"))
         seen.add(item)
 
         record: dict[str, object] = {"item_id": item}

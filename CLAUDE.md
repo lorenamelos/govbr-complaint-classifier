@@ -120,7 +120,7 @@ Endpoints:
 data/              never committed; see data/README.md for layout and privacy rules
 docs/adr/          architecture decision records
 docs/rubric/       annotation rubric, Portuguese official, English translation
-docs/annotation/   annotation pilot: what it is, selection, exclusion, privacy
+docs/annotation/   annotation pilot and final sample waves: selection, exclusion, privacy
 models/            artifacts; not committed
 notebooks/         exploration only; anything reusable moves to src/
 scripts/           CLI entry points (collect, label, train, benchmark)

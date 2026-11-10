@@ -158,7 +158,7 @@ def test_blind_copy_flag_writes_a_separate_unannotated_file(tmp_path: Path) -> N
     link_path, interim_path = tmp_path / "link.csv", tmp_path / "reviews.parquet"
     LINK.to_csv(link_path, index=False)
     TEXTS.rename_axis("review_id").rename("text").reset_index().to_parquet(interim_path)
-    script = Path(__file__).resolve().parents[2] / "scripts" / "build_pilot_sheet.py"
+    script = Path(__file__).resolve().parents[2] / "scripts" / "build_annotation_sheet.py"
     command = [
         sys.executable,
         str(script),
