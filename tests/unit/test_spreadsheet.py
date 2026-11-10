@@ -68,6 +68,11 @@ def test_columns_come_from_the_taxonomy() -> None:
     columns = annotation_columns()
     assert columns[:4] == ["item_id", "texto", "cortado", "ood_manual"]
     assert columns[-4:] == ["obrigatoriedade", "duvida", "nota_duvida", "hora_fim"]
+    # v4: assunto_outro right after the tema columns; v3 (pilot first pass) has none
+    assert columns[columns.index(tema_columns()[-1]) + 1] == "assunto_outro"
+    assert annotation_columns(3) == [c for c in columns if c != "assunto_outro"]
+    with pytest.raises(ValueError):
+        annotation_columns(2)
     assert "vazio" not in list_values()["duvida"]
 
 
@@ -75,7 +80,7 @@ def test_workbook_layout(items: pd.DataFrame, tmp_path: Path) -> None:
     path = tmp_path / "sheet.xlsx"
     write_workbook(items, path, RUBRIC)
     workbook = load_workbook(path)
-    assert workbook.sheetnames == ["anotacao", "rubrica", "sessoes", "leia-me"]
+    assert workbook.sheetnames == ["anotacao", "rubrica", "leia-me"]  # no sessoes in v4
     ws = workbook["anotacao"]
     header = [cell.value for cell in ws[1]]
     assert header == annotation_columns()
@@ -89,7 +94,7 @@ def test_workbook_layout(items: pd.DataFrame, tmp_path: Path) -> None:
         assert not ws.cell(row, col["ood_manual"]).protection.locked
         for name in [*tema_columns(), "obrigatoriedade"]:
             assert ws.cell(row, col[name]).value is False
-        for name in ["ood_manual", "tipo", "duvida", "nota_duvida", "hora_fim"]:
+        for name in ["ood_manual", "assunto_outro", "tipo", "duvida", "nota_duvida", "hora_fim"]:
             assert ws.cell(row, col[name]).value is None
     assert ws.cell(2, col["hora_fim"]).number_format == "yyyy-mm-dd hh:mm:ss"
 
@@ -120,7 +125,11 @@ def test_warnings_are_yellow_only(items: pd.DataFrame, tmp_path: Path) -> None:
     write_workbook(items, path, RUBRIC)
     ws = load_workbook(path)["anotacao"]
     rules = [rule for ranges in ws.conditional_formatting for rule in ranges.rules]
-    assert len(rules) == 7
+    assert len(rules) == 8
+    formulas = [rule.formula[0] for rule in rules]
+    col = {name: spreadsheet.get_column_letter(i) for i, name in enumerate(annotation_columns(), 1)}
+    assert f'AND(${col["tema_outro"]}2=TRUE,${col["assunto_outro"]}2="")' in formulas
+    assert f'AND(${col["ood_manual"]}2<>"",${col["hora_fim"]}2="")' in formulas
     colors = {rule.dxf.fill.fgColor.rgb for rule in rules}
     assert colors == {"00FFF2A8"}
 
@@ -165,3 +174,4 @@ def test_blind_copy_flag_writes_a_separate_unannotated_file(tmp_path: Path) -> N
     assert (tmp_path / spreadsheet.BLIND_PATH.name).exists()
     assert not (tmp_path / spreadsheet.SHEET_PATH.name).exists()
     assert "123.456.789-09" not in result.stdout  # counts and item ids only
+    assert "linhas 2 a 4" in result.stdout  # post-import steps follow the item count

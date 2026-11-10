@@ -7,6 +7,10 @@ one must pass the last barrier (`privacy.assert_masked`) or nothing is written.
 Conditional formatting only warns, in yellow, and never marks a row as correct. The strict reader
 (`annotation.reader`) is the final check.
 
+Layout version 4 (rubric v4) adds `assunto_outro` after the tema columns and drops the `sessoes`
+sheet: sessions are inferred from hora_fim (`annotation.summary`). Version 3 is the layout of the
+pilot's first pass, kept so the reader can still read that frozen file.
+
 openpyxl is imported here and nowhere the API can reach (tests/unit/test_annotation_isolation.py).
 """
 
@@ -35,8 +39,8 @@ BLIND_PATH = PROJECT_ROOT / "data" / "pilot" / "pilot_annotation_blind.xlsx"
 
 PROTECTED = ("item_id", "texto", "cortado")
 DATETIME_FORMAT = "yyyy-mm-dd hh:mm:ss"
-SESSION_COLUMNS = ("data", "inicio", "fim", "itens_anotados", "pausas_min", "observacoes")
-SESSION_ROWS = 30
+LAYOUT_VERSIONS = (3, 4)
+CURRENT_LAYOUT = 4
 YELLOW = PatternFill(start_color="FFF2A8", end_color="FFF2A8", fill_type="solid")
 
 
@@ -45,14 +49,17 @@ def tema_columns() -> list[str]:
     return [f"tema_{label}" for label in load_taxonomy().attributes["tema"].labels]
 
 
-def annotation_columns() -> list[str]:
-    """The `anotacao` header, in order. The strict reader expects exactly this."""
+def annotation_columns(version: int = CURRENT_LAYOUT) -> list[str]:
+    """The `anotacao` header of a layout version, in order; the strict reader expects exactly it."""
+    if version not in LAYOUT_VERSIONS:
+        raise ValueError(f"unknown layout version {version}; known: {LAYOUT_VERSIONS}")
     return [
         "item_id",
         "texto",
         "cortado",
         "ood_manual",
         *tema_columns(),
+        *(["assunto_outro"] if version >= 4 else []),
         "tipo",
         "bloqueio",
         "acionabilidade",
@@ -126,9 +133,10 @@ def _warning_formulas(col: dict[str, str]) -> dict[str, str]:
     ood, tipo, bloq, acion = (
         f"${col[c]}2" for c in ("ood_manual", "tipo", "bloqueio", "acionabilidade")
     )
-    obrig, nota = f"${col['obrigatoriedade']}2", f"${col['nota_duvida']}2"
+    obrig, subject = f"${col['obrigatoriedade']}2", f"${col['assunto_outro']}2"
     nenhum, outro = f"${col['tema_nenhum']}2", f"${col['tema_outro']}2"
-    anything = f'OR({checked}>0,{tipo}<>"",{bloq}<>"",{acion}<>"",{obrig}=TRUE)'
+    hora_fim = f"${col['hora_fim']}2"
+    anything = f'OR({checked}>0,{tipo}<>"",{bloq}<>"",{acion}<>"",{obrig}=TRUE,{subject}<>"")'
     return {
         "ood other than nao with attributes": f'AND({ood}<>"",{ood}<>"nao",{anything})',
         "ood nao with an empty attribute": (
@@ -142,7 +150,8 @@ def _warning_formulas(col: dict[str, str]) -> dict[str, str]:
         "tema nenhum needs tipo nenhum or pedido_funcionalidade": (
             f'AND({nenhum}=TRUE,{tipo}<>"",{tipo}<>"nenhum",{tipo}<>"pedido_funcionalidade")'
         ),
-        "tema outro needs nota_duvida": f'AND({outro}=TRUE,{nota}="")',
+        "tema outro needs assunto_outro": f'AND({outro}=TRUE,{subject}="")',
+        "annotated without hora_fim": f'AND({ood}<>"",{hora_fim}="")',
     }
 
 
@@ -168,7 +177,9 @@ def _annotation_sheet(ws: Worksheet, items: pd.DataFrame) -> None:
     for row in ws.iter_rows(min_row=2, max_row=last_row):
         for cell, name in zip(row, columns, strict=True):
             cell.protection = Protection(locked=name in PROTECTED)
-            cell.alignment = Alignment(wrap_text=name in ("texto", "nota_duvida"), vertical="top")
+            cell.alignment = Alignment(
+                wrap_text=name in ("texto", "assunto_outro", "nota_duvida"), vertical="top"
+            )
             if name == "hora_fim":
                 cell.number_format = DATETIME_FORMAT
     ws.protection.sheet = True
@@ -207,7 +218,14 @@ def _annotation_sheet(ws: Worksheet, items: pd.DataFrame) -> None:
         ws.conditional_formatting.add(whole_rows, FormulaRule(formula=[formula], fill=YELLOW))
 
     ws.freeze_panes = "C2"
-    widths = {"item_id": 9, "texto": 60, "cortado": 9, "ood_manual": 17, "nota_duvida": 40}
+    widths = {
+        "item_id": 9,
+        "texto": 60,
+        "cortado": 9,
+        "ood_manual": 17,
+        "assunto_outro": 25,
+        "nota_duvida": 40,
+    }
     for name, letter in col.items():
         ws.column_dimensions[letter].width = widths.get(name, 20 if "_" in name else 16)
 
@@ -222,45 +240,31 @@ def _rubric_sheet(ws: Worksheet, rubric: str) -> None:
     ws.protection.sheet = True
 
 
-def _sessions_sheet(ws: Worksheet) -> None:
-    ws.append(list(SESSION_COLUMNS))
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-    formats = {"data": "yyyy-mm-dd", "inicio": "hh:mm:ss", "fim": "hh:mm:ss"}
-    for row in range(2, SESSION_ROWS + 2):
-        for index, name in enumerate(SESSION_COLUMNS, start=1):
-            cell = ws.cell(row, index)
-            cell.number_format = formats.get(name, "General")
-    for index, name in enumerate(SESSION_COLUMNS, start=1):
-        ws.column_dimensions[get_column_letter(index)].width = 40 if name == "observacoes" else 15
-    ws.freeze_panes = "A2"
-
+PILOT_PURPOSE = (
+    "O que é: 50 avaliações do Google Play para medir a sua velocidade e achar onde a rubrica gera "
+    "dúvida. Não é o conjunto de teste. Os mesmos itens são reanotados pelo menos três semanas "
+    "depois, sem olhar a primeira passada."
+)
 
 README_LINES = (
-    "Leia-me: piloto de anotação",
-    "",
-    "O que é: 50 avaliações do Google Play para medir a sua velocidade e achar onde a rubrica gera "
-    "dúvida. Não é o conjunto de teste. Os mesmos itens serão reanotados pelo menos três semanas "
-    "depois.",
-    "",
     "Como preencher a aba anotacao, item por item:",
     "1. Decida ood_manual. Se for nao, preencha tema (uma ou mais caixas), tipo, bloqueio e "
     "acionabilidade. Se for outro valor, deixe tudo vazio, inclusive a caixa obrigatoriedade.",
     "2. Marque obrigatoriedade quando o texto diz que a pessoa é obrigada a usar o app ou um "
     "mecanismo dele. Não é rótulo.",
-    "3. duvida: uma categoria só, a principal, explicada em nota_duvida. Em branco quando não há "
-    "dúvida. O assunto do tema outro também vai em nota_duvida.",
-    "4. Ao terminar o item, clique em hora_fim e aperte Cmd+Option+Shift+; (grava data e hora). "
-    "Não use Cmd+Shift+;, que grava só a hora.",
+    "3. Tema outro: escreva o assunto em assunto_outro (obrigatório). Um assunto de fora da lista "
+    "ao lado de um tema da lista também pode ir em assunto_outro, para registro.",
+    "4. duvida: uma categoria só, a principal, explicada em nota_duvida. Em branco quando não há "
+    "dúvida. O assunto do tema outro nunca vai em nota_duvida.",
+    "5. Ao terminar o item, clique em hora_fim e aperte Cmd+Option+Shift+; (grava data e hora). "
+    "Não use Cmd+Shift+;, que grava só a hora. Linha anotada sem hora_fim fica amarela.",
     "",
     "O que não mexer: item_id, texto e cortado; o cabeçalho; os nomes das abas. O leitor estrito "
     "recusa a planilha se o cabeçalho mudar.",
     "",
-    "Pode ordenar e filtrar à vontade: o tempo por item vem de hora_fim e da aba sessoes, não da "
-    "posição da linha.",
-    "",
-    "Aba sessoes: uma linha por sessão de anotação, com data, hora de início e de fim, itens "
-    "anotados, minutos de pausa e observações. Uma sessão não deve passar da meia-noite.",
+    "Pode ordenar e filtrar à vontade: o tempo por item vem só de hora_fim, não da posição da "
+    "linha. As sessões são deduzidas: mais de 60 minutos sem anotar abre uma sessão nova, e mais "
+    "de 10 minutos dentro da sessão conta como pausa.",
     "",
     "Amarelo é só aviso de combinação suspeita, nunca de acerto. Não existe verde. A verificação "
     "definitiva é o leitor estrito, rodado depois.",
@@ -269,11 +273,12 @@ README_LINES = (
 )
 
 
-def _readme_sheet(ws: Worksheet, blind: bool) -> None:
+def _readme_sheet(ws: Worksheet, purpose: str, blind: bool) -> None:
     ws.column_dimensions["A"].width = 110
-    lines = list(README_LINES)
+    title = "Leia-me: anotação"
     if blind:
-        lines[0] += " (cópia cega para reanotação: não abra a primeira passada)"
+        title += " (cópia cega para reanotação: não abra a primeira passada)"
+    lines = [title, "", purpose, "", *README_LINES]
     for line in lines:
         ws.append([line])
         ws.cell(ws.max_row, 1).alignment = Alignment(wrap_text=True, vertical="top")
@@ -281,8 +286,14 @@ def _readme_sheet(ws: Worksheet, blind: bool) -> None:
     ws.protection.sheet = True
 
 
-def write_workbook(items: pd.DataFrame, path: Path, rubric: str, blind: bool = False) -> None:
-    """Write the four sheets. Refuses to overwrite: an existing file may hold annotations."""
+def write_workbook(
+    items: pd.DataFrame,
+    path: Path,
+    rubric: str,
+    blind: bool = False,
+    purpose: str = PILOT_PURPOSE,
+) -> None:
+    """Write the three sheets. Refuses to overwrite: an existing file may hold annotations."""
     if path.exists():
         raise FileExistsError(f"{path} exists; it may hold annotations. Move it away first.")
     workbook = Workbook()
@@ -291,30 +302,37 @@ def write_workbook(items: pd.DataFrame, path: Path, rubric: str, blind: bool = F
     annotation.title = "anotacao"
     _annotation_sheet(annotation, items)
     _rubric_sheet(workbook.create_sheet("rubrica"), rubric)
-    _sessions_sheet(workbook.create_sheet("sessoes"))
-    _readme_sheet(workbook.create_sheet("leia-me"), blind)
+    _readme_sheet(workbook.create_sheet("leia-me"), purpose, blind)
     workbook.properties.created = datetime(2026, 1, 1)
     path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(path)
 
 
-POST_IMPORT_STEPS = (
-    "Abra o Google Sheets > Arquivo > Importar > Upload, escolha o .xlsx e 'Criar nova planilha'.",
-    "Aba anotacao: selecione as colunas tema_* e obrigatoriedade (linhas 2 a 51) e use "
-    "Inserir > Caixa de seleção. Os FALSE viram caixas desmarcadas.",
-    "Refaça a proteção: Dados > Proteger páginas e intervalos, proteja item_id, texto e cortado "
-    "(A1:C51) e a linha 1 (cabeçalho), e as abas rubrica e leia-me inteiras.",
+_CHECK_STEPS = (
     "Confira a validação das listas: clique numa célula de ood_manual, tipo, bloqueio, "
     "acionabilidade e duvida, veja o menu suspenso, e em Dados > Validação de dados confirme "
     "'Rejeitar entrada' (não 'Mostrar aviso').",
     "Confira hora_fim: Formatar > Número > Data e hora personalizadas = aaaa-mm-dd hh:mm:ss. "
     "Teste Cmd+Option+Shift+; numa célula e apague depois.",
     "Confira o congelamento: linha 1 e colunas item_id e texto (Ver > Congelar).",
-    "Confira a formatação condicional: Formatar > Formatação condicional deve listar 7 regras "
+    "Confira a formatação condicional: Formatar > Formatação condicional deve listar 8 regras "
     "amarelas na aba anotacao.",
-    "Aba sessoes: confira o formato de data (aaaa-mm-dd) e de hora (hh:mm:ss) nas colunas data, "
-    "inicio e fim.",
 )
+
+
+def post_import_steps(n_items: int) -> tuple[str, ...]:
+    """Manual steps in Google Sheets after importing a workbook with `n_items` rows."""
+    last = n_items + 1
+    return (
+        "Abra o Google Sheets > Arquivo > Importar > Upload, escolha o .xlsx e "
+        "'Criar nova planilha'.",
+        f"Aba anotacao: selecione as colunas tema_* e obrigatoriedade (linhas 2 a {last}) e use "
+        "Inserir > Caixa de seleção. Os FALSE viram caixas desmarcadas.",
+        "Refaça a proteção: Dados > Proteger páginas e intervalos, proteja item_id, texto e "
+        f"cortado (A1:C{last}) e a linha 1 (cabeçalho), e as abas rubrica e leia-me inteiras.",
+        *_CHECK_STEPS,
+    )
+
 
 LOST_ON_IMPORT = (
     "A proteção de colunas e abas: o Sheets não importa a proteção do .xlsx.",

@@ -1,19 +1,23 @@
 """Strict reader of the annotation spreadsheet (.xlsx, or .csv exported from Google Sheets).
 
 It raises, never warns and never corrects. Every problem is collected and reported with the item_id
-and the column, never the text. The rules are the consistency rules of rubric v3
+and the column, never the text. The rules are the consistency rules of the rubric
 (docs/rubric/annotation_rubric.pt.md) plus the shape of the sheet:
 
-- the header matches `spreadsheet.annotation_columns()` exactly, order included;
+- the header matches `spreadsheet.annotation_columns(version)` exactly, order included, for one
+  layout version: 4 (current) or 3 (the pilot's frozen first pass). The version comes from the
+  header alone, and each file is read by the rules of its own version, never a mix;
 - every list value is in taxonomy.yaml (attributes or the annotation section), checkboxes are
   TRUE/FALSE, hora_fim is a date and time;
 - item_id is present, unique and in the pilot link table;
 - ood_manual = nao requires tema (at least one box), tipo, bloqueio and acionabilidade;
-- ood_manual other than nao requires the four attributes and the obrigatoriedade box empty;
+- ood_manual other than nao requires the four attributes and the obrigatoriedade box empty, and
+  assunto_outro empty too (v4): with no theme there is no subject to record;
 - at most one exclusive tema value, and never next to a specific theme;
 - tipo = nenhum requires tema = nenhum, bloqueio = nao and acionabilidade = nao;
 - tema = nenhum accepts tipo nenhum or pedido_funcionalidade only;
-- tema = outro requires nota_duvida (the subject).
+- tema = outro requires the subject: in assunto_outro (v4) or nota_duvida (v3). In v4,
+  assunto_outro is free text and may also sit next to a listed theme (a subject on record).
 
 A row with nothing filled is pending; it is an error only with `require_complete`. A blank
 ood_manual next to anything filled is an error.
@@ -28,7 +32,12 @@ from openpyxl import load_workbook
 
 from govbr_classifier.annotation.fields import load_annotation_fields
 from govbr_classifier.annotation.pilot import PILOT_DIR
-from govbr_classifier.annotation.spreadsheet import annotation_columns, list_values, tema_columns
+from govbr_classifier.annotation.spreadsheet import (
+    LAYOUT_VERSIONS,
+    annotation_columns,
+    list_values,
+    tema_columns,
+)
 from govbr_classifier.taxonomy import load_taxonomy
 
 LINK_PATH = PILOT_DIR / "link.csv"
@@ -60,10 +69,11 @@ class AnnotationError(ValueError):
 
 @dataclass(frozen=True)
 class Annotations:
-    """Validated annotations (without the text column) and the pending item ids."""
+    """Validated annotations (without the text column), the pending item ids and the layout."""
 
     frame: pd.DataFrame
     pending: list[str]
+    version: int
 
 
 def _load_rows(path: Path) -> tuple[list[str], list[list[object]]]:
@@ -108,10 +118,15 @@ def read_annotations(
     path: Path, link_path: Path = LINK_PATH, require_complete: bool = False
 ) -> Annotations:
     """Validate the annotation file and return it without the text column."""
-    expected = annotation_columns()
     header, rows = _load_rows(path)
-    if header != expected:
+    layouts = {version: annotation_columns(version) for version in LAYOUT_VERSIONS}
+    matching = [version for version, columns in layouts.items() if header == columns]
+    if not matching:
+        expected = layouts[max(layouts)]
         raise AnnotationError([Problem("-", "header", f"expected {expected}, found {header}")])
+    version = matching[0]
+    expected = layouts[version]
+    subject_column = "assunto_outro" if version >= 4 else "nota_duvida"
     known_ids = set(pd.read_csv(link_path, dtype=str)["item_id"])
     lists = list_values()
     lists["cortado"] = ("sim", "nao")
@@ -160,7 +175,11 @@ def read_annotations(
         filled = (
             bool(themes)
             or record["obrigatoriedade"]
-            or any(record[name] for name in (*attributes, "duvida", "nota_duvida", "hora_fim"))
+            or any(
+                record[name]
+                for name in (*attributes, "duvida", "nota_duvida", "hora_fim", "assunto_outro")
+                if name in record
+            )
         )
         ood = record["ood_manual"]
         if not ood:
@@ -189,6 +208,10 @@ def read_annotations(
                 problems.append(
                     Problem(label, "obrigatoriedade", f"ood_manual = {ood} needs it empty")
                 )
+            if str(record.get("assunto_outro", "")).strip():
+                problems.append(
+                    Problem(label, "assunto_outro", f"ood_manual = {ood} needs it empty")
+                )
 
         chosen_exclusive = [name for name in themes if name in exclusive]
         if chosen_exclusive and len(themes) > 1:
@@ -207,12 +230,12 @@ def read_annotations(
             problems.append(
                 Problem(label, "tipo", "tema = nenhum needs tipo nenhum or pedido_funcionalidade")
             )
-        if record["tema_outro"] and not str(record["nota_duvida"]).strip():
-            problems.append(Problem(label, "nota_duvida", "tema = outro needs the subject"))
+        if record["tema_outro"] and not str(record[subject_column]).strip():
+            problems.append(Problem(label, subject_column, "tema = outro needs the subject"))
         records.append(record)
 
     if problems:
         raise AnnotationError(problems)
     frame = pd.DataFrame(records)
     frame["status"] = ["pending" if item in pending else "annotated" for item in frame["item_id"]]
-    return Annotations(frame=frame, pending=pending)
+    return Annotations(frame=frame, pending=pending, version=version)

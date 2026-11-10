@@ -2,8 +2,9 @@
 
     python scripts/summarize_pilot.py data/pilot/annotations_pass1.xlsx --require-complete
 
-Stops at the strict reader's first report: every broken rule, by item_id and column. The notes in
-nota_duvida are the annotator's own and are printed, grouped by doubt category.
+Reads layout v4 and the v3 layout of the pilot's frozen first pass. Stops at the strict reader's
+first report: every broken rule, by item_id and column. The notes in nota_duvida and assunto_outro
+are the annotator's own and are printed.
 """
 
 import argparse
@@ -15,8 +16,9 @@ from govbr_classifier.annotation.reader import LINK_PATH, AnnotationError, read_
 from govbr_classifier.annotation.summary import (
     ACTIONABLE_WARNING,
     DOUBT_SHARE,
+    PAUSE_MINUTES,
+    SESSION_GAP_MINUTES,
     attribute_counts,
-    read_sessions,
     time_items,
     time_stats,
 )
@@ -41,7 +43,10 @@ def main() -> int:
     frame = result.frame
     link = pd.read_csv(args.link, dtype={"item_id": str}).set_index("item_id")
     annotated = frame[frame["status"].eq("annotated")]
-    print(f"OK: {len(annotated)} annotated, {len(result.pending)} pending {result.pending or ''}")
+    print(
+        f"OK (layout v{result.version}): {len(annotated)} annotated, "
+        f"{len(result.pending)} pending {result.pending or ''}"
+    )
 
     print("\n== ood_manual against the API guard (language and off_domain are not built)")
     guard = annotated["item_id"].map(link["guard_low_text_quality"])
@@ -66,29 +71,37 @@ def main() -> int:
     print(f"\n== obrigatoriedade box checked: {int(annotated['obrigatoriedade'].sum())}")
     print("   (examples collected; not a frequency: 2 of the 50 items were picked for it)")
 
-    print("\n== time per item")
-    sessions = read_sessions(args.path) if args.path.suffix == ".xlsx" else pd.DataFrame()
-    print(f"  sessions in the sessoes sheet: {len(sessions)}")
-    if sessions.empty:
-        sessions = pd.DataFrame(columns=["session", "start", "end"])
-    timing = time_items(annotated, sessions)
-    first = timing.intervals[timing.intervals["kind"].eq("first")]
-    pauses = timing.intervals[timing.intervals["kind"].eq("pause")]
+    print(
+        "\n== time per item (APPROXIMATE: sessions inferred from hora_fim, "
+        f"gap > {SESSION_GAP_MINUTES} min opens one, gap > {PAUSE_MINUTES} min inside is a pause)"
+    )
+    timing = time_items(annotated)
+    for session in timing.sessions.itertuples(index=False):
+        print(
+            f"  session {session.session}: {session.start:%Y-%m-%d %H:%M:%S} to "
+            f"{session.end:%H:%M:%S}, {session.items} items"
+        )
     if timing.intervals["kind"].eq("interval").any():
         stats = time_stats(timing.intervals, link["original_length"])
         print(stats.round(1).to_string())
     else:
         print("  no timed intervals")
-    print(
-        "  first item of each session (from inicio): "
-        f"{first[['item_id', 'seconds']].to_dict('records')}"
-    )
-    print(f"  pauses (> 10 min, excluded): {pauses[['item_id', 'seconds']].to_dict('records')}")
+    kinds = timing.intervals.groupby("kind")["item_id"].apply(list)
+    print(f"  first item of each session (not timed): {kinds.get('first', [])}")
+    pauses = timing.intervals[timing.intervals["kind"].eq("pause")]
+    print(f"  pauses (excluded): {pauses[['item_id', 'seconds']].to_dict('records')}")
     print(f"  no hora_fim ({len(timing.no_time)}): {', '.join(timing.no_time) or 'none'}")
-    print(
-        f"  outside every session ({len(timing.outside_sessions)}): "
-        f"{', '.join(timing.outside_sessions) or 'none'}"
-    )
+    if timing.no_time:
+        print("  (their time is absorbed into the next timed gap, which reads longer)")
+
+    if result.version >= 4:
+        print("\n== assunto_outro (annotator's subjects)")
+        subjects = annotated[annotated["assunto_outro"].str.strip().ne("")]
+        for row in subjects.itertuples(index=False):
+            where = "tema outro" if row.tema_outro else "next to a listed theme"
+            print(f"  {row.item_id} ({where}): {row.assunto_outro}")
+        if subjects.empty:
+            print("  none")
 
     print("\n== nota_duvida by doubt category (annotator's notes)")
     notes = annotated[annotated["nota_duvida"].str.strip().ne("")]

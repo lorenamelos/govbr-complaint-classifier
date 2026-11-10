@@ -84,12 +84,13 @@ def test_header_must_match_exactly(tmp_path: Path, link: Path) -> None:
         ("p003", {"tipo": "bug"}, ("p003", "tipo")),
         ("p003", {"tema_outro": True}, ("p003", "tema_outro")),
         ("p003", {"obrigatoriedade": True}, ("p003", "obrigatoriedade")),
+        ("p003", {"assunto_outro": "navegacao"}, ("p003", "assunto_outro")),
         ("p001", {"tema_nao_especificado": True}, ("p001", "tema_nao_especificado")),
         ("p002", {"bloqueio": "sim"}, ("p002", "bloqueio")),
         ("p002", {"acionabilidade": "sim"}, ("p002", "acionabilidade")),
         ("p001", {"tipo": "nenhum", "bloqueio": "nao"}, ("p001", "tipo")),
         ("p002", {"tipo": "bug"}, ("p002", "tipo")),
-        ("p001", {"tema_travamento": False, "tema_outro": True}, ("p001", "nota_duvida")),
+        ("p001", {"tema_travamento": False, "tema_outro": True}, ("p001", "assunto_outro")),
         ("p001", {"ood_manual": None}, ("p001", "ood_manual")),
     ],
 )
@@ -100,8 +101,61 @@ def test_each_rule_rejects_the_sheet(
 
 
 def test_two_exclusive_themes_are_rejected(tmp_path: Path, link: Path) -> None:
-    rows = with_change("p002", tema_outro=True, nota_duvida="assunto", tipo="pedido_funcionalidade")
+    rows = with_change(
+        "p002", tema_outro=True, assunto_outro="assunto", tipo="pedido_funcionalidade"
+    )
     assert ("p002", "tema_outro") in problems(make_sheet(tmp_path, rows), link)
+
+
+def test_tema_outro_takes_the_subject_from_assunto_outro_not_nota_duvida(
+    tmp_path: Path, link: Path
+) -> None:
+    outro = {"tema_travamento": False, "tema_outro": True, "tipo": "insatisfacao_geral"}
+    with_note = with_change("p001", **outro, nota_duvida="assunto", duvida="tema_limite")
+    assert ("p001", "assunto_outro") in problems(make_sheet(tmp_path, with_note), link)
+    with_subject = with_change("p001", **outro, assunto_outro="navegacao")
+    read_annotations(make_sheet(tmp_path, with_subject, "b.xlsx"), link)
+
+
+def test_assunto_outro_may_sit_next_to_a_listed_theme(tmp_path: Path, link: Path) -> None:
+    rows = with_change("p001", assunto_outro="prazo do orgao")
+    result = read_annotations(make_sheet(tmp_path, rows), link, require_complete=True)
+    assert result.version == 4
+    assert result.frame.set_index("item_id").loc["p001", "assunto_outro"] == "prazo do orgao"
+
+
+def v3_sheet(tmp_path: Path, rows: dict[str, dict[str, object]], name: str = "v3.xlsx") -> Path:
+    """The layout of the pilot's first pass: no assunto_outro column."""
+    path = make_sheet(tmp_path, rows, name)
+    workbook = load_workbook(path)
+    ws = workbook["anotacao"]
+    ws.delete_cols(annotation_columns().index("assunto_outro") + 1)
+    workbook.save(path)
+    return path
+
+
+def test_the_v3_layout_is_read_by_the_v3_rules(tmp_path: Path, link: Path) -> None:
+    outro = {"tema_travamento": False, "tema_outro": True, "tipo": "insatisfacao_geral"}
+    result = read_annotations(
+        v3_sheet(tmp_path, with_change("p001", **outro, nota_duvida="assunto")), link
+    )
+    assert result.version == 3
+    assert "assunto_outro" not in result.frame.columns
+    assert ("p001", "nota_duvida") in problems(
+        v3_sheet(tmp_path, with_change("p001", **outro), "b.xlsx"), link
+    )
+
+
+def test_a_mixed_header_is_rejected(tmp_path: Path, link: Path) -> None:
+    # v4 columns in the v3 order (assunto_outro moved to the end) match neither layout.
+    path = make_sheet(tmp_path, FILLED)
+    workbook = load_workbook(path)
+    ws = workbook["anotacao"]
+    position = annotation_columns().index("assunto_outro") + 1
+    ws.delete_cols(position)
+    ws.cell(1, ws.max_column + 1).value = "assunto_outro"
+    workbook.save(path)
+    assert problems(path, link) == [("-", "header")]
 
 
 def test_tema_nenhum_accepts_a_feature_request(tmp_path: Path, link: Path) -> None:
@@ -149,24 +203,37 @@ def test_the_csv_export_is_read_the_same_way(tmp_path: Path, link: Path) -> None
     assert result.frame.set_index("item_id").loc["p002", "tema_nenhum"]
 
 
-def test_timing_by_gaps_within_sessions() -> None:
+def test_sessions_are_inferred_from_gaps_between_hora_fim() -> None:
     at = lambda m, s=0: datetime(2026, 11, 3, 10, m, s)  # noqa: E731
     annotations = pd.DataFrame(
         {
-            "item_id": ["a", "b", "c", "d", "e", "f"],
-            "hora_fim": [at(1), at(3), at(4), at(30), None, datetime(2026, 11, 4, 9, 0)],
+            # row order is shuffled on purpose: only hora_fim matters
+            "item_id": ["c", "a", "b", "d", "e", "f", "g"],
+            "hora_fim": [at(4), at(1), at(3), at(30), None, datetime(2026, 11, 3, 11, 31), at(31)],
         }
     )
-    sessions = pd.DataFrame({"session": [1], "start": [at(0)], "end": [at(59)]})
-    timing = time_items(annotations, sessions)
+    timing = time_items(annotations)
     kinds = dict(zip(timing.intervals["item_id"], timing.intervals["kind"], strict=True))
     seconds = dict(zip(timing.intervals["item_id"], timing.intervals["seconds"], strict=True))
-    assert kinds == {"a": "first", "b": "interval", "c": "interval", "d": "pause"}
-    assert seconds["b"] == 120 and seconds["c"] == 60
+    sessions = dict(zip(timing.intervals["item_id"], timing.intervals["session"], strict=True))
+    # d: 26 min after c, a pause in the same session; f: exactly 60 min after g, same session too
+    assert kinds == {
+        "a": "first", "b": "interval", "c": "interval", "d": "pause", "g": "interval",
+        "f": "pause",
+    }  # fmt: skip
+    assert seconds["b"] == 120 and seconds["c"] == 60 and pd.isna(seconds["a"])
+    assert set(sessions.values()) == {1}
     assert timing.no_time == ["e"]
-    assert timing.outside_sessions == ["f"]
 
-    stats = time_stats(timing.intervals, pd.Series({"a": 5, "b": 5, "c": 40, "d": 40}))
-    assert stats.loc["all", "items"] == 2
-    assert stats.loc["all", "median_s"] == 90
+    later = pd.concat(
+        [annotations, pd.DataFrame({"item_id": ["h"], "hora_fim": [datetime(2026, 11, 3, 12, 32)]})]
+    )
+    timing = time_items(later)  # h: 61 min after f, opens session 2
+    row = timing.intervals.set_index("item_id").loc["h"]
+    assert row["kind"] == "first" and row["session"] == 2 and pd.isna(row["seconds"])
+    assert timing.sessions["items"].tolist() == [6, 1]
+
+    stats = time_stats(timing.intervals, pd.Series({"b": 5, "c": 40, "g": 40}))
+    assert stats.loc["all", "items"] == 3
+    assert stats.loc["all", "median_s"] == 60
     assert stats.loc["<= 12 chars", "median_s"] == 120

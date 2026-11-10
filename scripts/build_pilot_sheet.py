@@ -16,10 +16,10 @@ from govbr_classifier.annotation.pilot import PILOT_DIR
 from govbr_classifier.annotation.spreadsheet import (
     BLIND_PATH,
     LOST_ON_IMPORT,
-    POST_IMPORT_STEPS,
     RUBRIC_PATH,
     SHEET_PATH,
     build_items,
+    post_import_steps,
     write_workbook,
 )
 from govbr_classifier.settings import PROJECT_ROOT
@@ -54,7 +54,7 @@ def main() -> int:
     write_workbook(items, path, RUBRIC_PATH.read_text(encoding="utf-8"), blind=args.blind_copy)
     print(f"\nwrote {path} ({len(items)} items)")
     print("\nManual steps after importing into Google Sheets:")
-    for number, step in enumerate(POST_IMPORT_STEPS, start=1):
+    for number, step in enumerate(post_import_steps(len(items)), start=1):
         print(f"  {number}. {step}")
     print("\nWhat is lost on import:")
     for item in LOST_ON_IMPORT:
