@@ -42,3 +42,14 @@ in waves: each wave is designed with what the previous one measured.
 
 Designed after wave 1 is annotated, from its counts per class and the precision of each signal on
 it. Its universe also excludes every wave 1 text by key.
+
+Candidates to leave the `pedido_funcionalidade` signal, decided only if the precision measured on
+wave 1 supports it (recorded 2026-11-10, wave 1 kept as drawn):
+
+- "deveria ter vergonha" (45 unique texts in the wave 1 universe): reads as a judgment, not a
+  request;
+- "deveria ter sido" (13): reads as a past expectation, not a request.
+
+Both were found by counting the word after "deveria ter" (word counts only, no text). The star
+rule already applied in wave 1 ("deveria(m) ter" followed by zero, nenhuma, menos or 0
+estrela(s)) removed only 3 texts.
