@@ -25,7 +25,7 @@ attributes:
     description: Did the person manage to do what they wanted?
     labels:
       sim: The person was blocked from completing the task.
-      nao: The person completed the task despite the problem.
+      nao: The person completed the task despite the problem, or the text reports no problem at all.
       nao_da_para_saber: The text does not say. A label about the text, not model uncertainty.
 
   tipo:
@@ -41,7 +41,7 @@ attributes:
     cardinality: single
     description: Is there enough information to act? See docs/rubric/annotation_rubric.pt.md.
     labels:
-      sim: Names at least one of service or feature, failing step, error message, device or OS.
+      sim: Names at least one of service, feature or channel, failing step, error message, device or OS.
       nao: None of the above.
 
 # Fields used only while annotating (human pilot and spreadsheet, and the LLM labeler for ood_manual).
